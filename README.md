@@ -38,7 +38,7 @@ Spring Initializr link: [Spring Boot Project Setup](https://start.spring.io/#!ty
 
 1. Clone the repository:
    ```sh
-   git clone https://github.com/your-repo/nexmeet.git
+   git clone https://github.com/somnesh/NexMeet.git
    cd nexmeet/backend
    ```
 
