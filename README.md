@@ -78,7 +78,7 @@ Spring Initializr link: [Spring Boot Project Setup](https://start.spring.io/#!ty
 
 - Ensure both the backend and frontend services are running.
 - Open the frontend in your browser at `http://localhost:5173` (default Vite port).
-- The backend should be running at `http://localhost:8080` (default Spring Boot port).
+- The backend should be running at `http://localhost:8090` (you can change Spring Boot port in the `application.properties` file).
 
 ## Deployment
 

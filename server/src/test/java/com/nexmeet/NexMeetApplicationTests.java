@@ -1,4 +1,4 @@
-package com.nexmeet.nexmeet_service;
+package com.nexmeet;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
