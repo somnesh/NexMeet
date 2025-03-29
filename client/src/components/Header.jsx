@@ -5,6 +5,7 @@ import { Video, Settings, Bell, Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { ProfileMenu } from "./ProfileMenu";
 
 export default function Header() {
   const [currentDateTime, setCurrentDateTime] = useState(new Date());
@@ -81,11 +82,12 @@ export default function Header() {
             <p className="text-xs text-muted-foreground">{formattedTime}</p>
           </div>
 
-          <Avatar className="h-8 w-8">
+          {/* <Avatar className="h-8 w-8">
             <AvatarFallback className="bg-primary/10 text-primary">
               U
             </AvatarFallback>
-          </Avatar>
+          </Avatar> */}
+          <ProfileMenu />
         </div>
 
         {/* Mobile Menu */}
