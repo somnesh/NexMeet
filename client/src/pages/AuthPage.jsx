@@ -1,7 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { Eye, EyeOff, Mail, Lock, AlertCircle, Video } from "lucide-react";
+import {
+  Eye,
+  EyeOff,
+  Mail,
+  Lock,
+  AlertCircle,
+  Video,
+  User,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,6 +27,7 @@ export default function AuthPage() {
   const [showSignInPassword, setShowSignInPassword] = useState(false);
 
   // State for sign up form
+  const [signUpName, setSignUpName] = useState("");
   const [signUpEmail, setSignUpEmail] = useState("");
   const [signUpPassword, setSignUpPassword] = useState("");
   const [signUpConfirmPassword, setSignUpConfirmPassword] = useState("");
@@ -79,8 +88,18 @@ export default function AuthPage() {
     setSignUpError("");
 
     // Validate form
-    if (!signUpEmail || !signUpPassword || !signUpConfirmPassword) {
+    if (
+      !signUpEmail ||
+      !signUpPassword ||
+      !signUpConfirmPassword ||
+      !signUpName
+    ) {
       setSignUpError("Please fill in all fields");
+      return;
+    }
+
+    if (signUpName.length < 3) {
+      setSignUpError("Name must have at least 3 characters");
       return;
     }
 
@@ -291,6 +310,20 @@ export default function AuthPage() {
                   </Alert>
                 )}
 
+                <div className="space-y-2 form-field animate-in fade-in slide-in-from-bottom-3 duration-500 fill-mode-both">
+                  <Label htmlFor="signup-name">Name</Label>
+                  <div className="relative">
+                    <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="signup-name"
+                      type="text"
+                      placeholder="name"
+                      className="pl-10"
+                      value={signUpName}
+                      onChange={(e) => setSignUpName(e.target.value)}
+                    />
+                  </div>
+                </div>
                 <div className="space-y-2 form-field animate-in fade-in slide-in-from-bottom-3 duration-500 fill-mode-both">
                   <Label htmlFor="signup-email">Email</Label>
                   <div className="relative">
