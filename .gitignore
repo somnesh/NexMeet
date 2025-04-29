@@ -5,3 +5,4 @@
 *.ipr
 
 server/.env
+client/.env
