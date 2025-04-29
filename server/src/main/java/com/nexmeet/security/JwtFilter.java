@@ -5,6 +5,7 @@ import com.nexmeet.util.JwtUtil;
 import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.HttpHeaders;
@@ -30,24 +31,44 @@ public class JwtFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
 
-        // Get the Authorization header
-        String authHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
-
-        // Check if header is present and starts with "Bearer "
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+        // Check if path should be excluded from authentication
+        if (shouldNotFilter(request)) {
             chain.doFilter(request, response);
             return;
         }
 
-        // Extract the token (Remove "Bearer ")
-        String token = authHeader.substring(7);
+        // First try to get token from cookies
+        String token = null;
+        if (request.getCookies() != null) {
+            for (Cookie cookie : request.getCookies()) {
+                if ("accessToken".equals(cookie.getName())) {
+                    token = cookie.getValue();
+                    break;
+                }
+            }
+        }
+
+        // If no token in cookies, try Authorization header as fallback
+        if (token == null) {
+            String authHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
+            if (authHeader != null && authHeader.startsWith("Bearer ")) {
+                token = authHeader.substring(7);
+            }
+        }
+
+        // If no token found, continue to next filter (will be blocked by security config)
+        if (token == null) {
+            chain.doFilter(request, response);
+            return;
+        }
 
         try {
             // Extract email from token
             String email = JwtUtil.extractEmail(token);
 
-            // Check if user is not already authenticated
-            if (email != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+            // Validate token
+            if (email != null && JwtUtil.isTokenValid(token, email) &&
+                    SecurityContextHolder.getContext().getAuthentication() == null) {
 
                 // Fetch user details from database
                 UserDetails userDetails = userDetailsService.loadUserByUsername(email);
@@ -62,10 +83,21 @@ public class JwtFilter extends OncePerRequestFilter {
                 SecurityContextHolder.getContext().setAuthentication(authToken);
             }
         } catch (JwtException e) {
-            System.out.println("Invalid JWT Token: " + e.getMessage());
+            logger.error("Invalid JWT Token: " + e.getMessage());
+            // Don't set the security context
         }
 
         // Continue to the next filter in the chain
         chain.doFilter(request, response);
+    }
+
+    @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        String path = request.getRequestURI();
+        // Don't apply filter to public paths
+        return path.startsWith("/api/auth/") ||
+                path.startsWith("/api/oauth/") ||
+                path.startsWith("/oauth2/") ||
+                path.equals("/api/health-check");
     }
 }

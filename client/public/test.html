@@ -1,0 +1,1232 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>NexMeet WebRTC Conference</title>
+    <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.6.1/socket.io.min.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        body {
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #ddd;
+            margin-bottom: 20px;
+        }
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        button {
+            padding: 8px 16px;
+            background-color: #2979ff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #2962ff;
+        }
+        button.danger {
+            background-color: #f44336;
+        }
+        button.danger:hover {
+            background-color: #d32f2f;
+        }
+        button.success {
+            background-color: #4caf50;
+        }
+        button.success:hover {
+            background-color: #388e3c;
+        }
+        button:disabled {
+            background-color: #bdbdbd;
+            cursor: not-allowed;
+        }
+        input, select {
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            grid-gap: 15px;
+            margin-bottom: 20px;
+        }
+        .video-container {
+            position: relative;
+            background-color: #333;
+            border-radius: 8px;
+            overflow: hidden;
+            aspect-ratio: 4/3;
+        }
+        .video-container video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .video-container .username {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            background-color: rgba(0, 0, 0, 0.5);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .chat-container {
+            display: flex;
+            flex-direction: column;
+            height: 400px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 15px;
+            background-color: white;
+        }
+        .chat-input {
+            display: flex;
+            padding: 10px;
+            background-color: #f5f5f5;
+            border-top: 1px solid #ddd;
+        }
+        .chat-input input {
+            flex: 1;
+            margin-right: 10px;
+        }
+        .message {
+            margin-bottom: 10px;
+            padding: 8px 12px;
+            border-radius: 8px;
+            max-width: 70%;
+        }
+        .message.sent {
+            background-color: #e3f2fd;
+            align-self: flex-end;
+            margin-left: auto;
+        }
+        .message.received {
+            background-color: #f1f1f1;
+            align-self: flex-start;
+        }
+        .message .sender {
+            font-weight: bold;
+            margin-bottom: 4px;
+        }
+        .message .time {
+            font-size: 12px;
+            color: #757575;
+            text-align: right;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+        .modal-content {
+            background-color: white;
+            margin: 15% auto;
+            padding: 20px;
+            border-radius: 8px;
+            width: 400px;
+            max-width: 90%;
+        }
+        .modal-title {
+            margin-top: 0;
+        }
+        .modal-buttons {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        #notifications {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 1000;
+        }
+        .notification {
+            background-color: white;
+            border-left: 4px solid #2979ff;
+            border-radius: 4px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            padding: 15px;
+            margin-bottom: 10px;
+            animation: slideIn 0.3s ease-out;
+        }
+        .notification.error {
+            border-left-color: #f44336;
+        }
+        .notification.success {
+            border-left-color: #4caf50;
+        }
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        .pending-requests {
+            background-color: white;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+        .request-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid #eee;
+        }
+        .request-item:last-child {
+            border-bottom: none;
+        }
+        .request-actions {
+            display: flex;
+            gap: 10px;
+        }
+        .participants-list {
+            background-color: white;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+        .participant-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid #eee;
+        }
+        .participant-item:last-child {
+            border-bottom: none;
+        }
+        .flex-container {
+            display: flex;
+            gap: 20px;
+        }
+        .main-content {
+            flex: 2;
+        }
+        .sidebar {
+            flex: 1;
+            min-width: 300px;
+        }
+        @media (max-width: 768px) {
+            .flex-container {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="header">
+    <h1>NexMeet WebRTC Conference</h1>
+    <div id="connectionStatus" class="status">Disconnected</div>
+</div>
+
+<div class="controls">
+    <input id="username" placeholder="Your Name" value="User">
+    <button id="createRoom">Create Meeting</button>
+    <input id="roomId" placeholder="Meeting ID">
+    <button id="joinRoom">Join Meeting</button>
+    <button id="leaveRoom" disabled>Leave Meeting</button>
+    <button id="toggleAudio" disabled>Mute Audio</button>
+    <button id="toggleVideo" disabled>Turn Off Video</button>
+    <button id="shareScreen" disabled>Share Screen</button>
+</div>
+
+<div class="flex-container">
+    <div class="main-content">
+        <div id="videoGrid" class="grid-container">
+            <!-- Videos will be added here -->
+        </div>
+
+        <div class="chat-container">
+            <div id="chatMessages" class="chat-messages">
+                <!-- Chat messages will appear here -->
+            </div>
+            <div class="chat-input">
+                <input id="chatInput" placeholder="Type a message..." disabled>
+                <button id="sendMessage" disabled>Send</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="sidebar">
+        <div id="hostControls" style="display: none;">
+            <h2>Meeting Controls</h2>
+            <div id="pendingRequests" class="pending-requests">
+                <h3>Pending Join Requests</h3>
+                <div id="requestsList">
+                    <!-- Join requests will appear here -->
+                    <div class="empty-message">No pending requests</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="participants-list">
+            <h3>Participants</h3>
+            <div id="participantsList">
+                <!-- Participants will be listed here -->
+                <div class="empty-message">No participants in the meeting</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Join Request Modal -->
+<div id="joinRequestModal" class="modal">
+    <div class="modal-content">
+        <h2 class="modal-title">Waiting for approval</h2>
+        <p>Your request to join the meeting has been sent to the host. Please wait for approval.</p>
+        <div class="modal-buttons">
+            <button id="cancelJoinRequest" class="danger">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<!-- Notifications Container -->
+<div id="notifications"></div>
+
+<script>
+    // Global Variables
+    let stompClient = null;
+    let localStream = null;
+    let localScreenStream = null;
+    let peerConnections = {};
+    let roomId = null;
+    let userId = "user_" + Math.floor(Math.random() * 10000);
+    let username = "User";
+    let isHost = false;
+    let pendingRequests = [];
+    let participants = [];
+    let isAudioEnabled = true;
+    let isVideoEnabled = true;
+    let isScreenSharing = false;
+
+    // DOM Elements
+    const connectionStatus = document.getElementById('connectionStatus');
+    const usernameInput = document.getElementById('username');
+    const createRoomButton = document.getElementById('createRoom');
+    const joinRoomButton = document.getElementById('joinRoom');
+    const leaveRoomButton = document.getElementById('leaveRoom');
+    const roomIdInput = document.getElementById('roomId');
+    const toggleAudioButton = document.getElementById('toggleAudio');
+    const toggleVideoButton = document.getElementById('toggleVideo');
+    const shareScreenButton = document.getElementById('shareScreen');
+    const videoGrid = document.getElementById('videoGrid');
+    const chatMessages = document.getElementById('chatMessages');
+    const chatInput = document.getElementById('chatInput');
+    const sendMessageButton = document.getElementById('sendMessage');
+    const hostControls = document.getElementById('hostControls');
+    const pendingRequestsContainer = document.getElementById('pendingRequests');
+    const requestsList = document.getElementById('requestsList');
+    const participantsList = document.getElementById('participantsList');
+    const joinRequestModal = document.getElementById('joinRequestModal');
+    const cancelJoinRequestButton = document.getElementById('cancelJoinRequest');
+
+    let socketIo=null;
+    const SERVER_URL = 'http://localhost:8090';
+
+    // Connect to WebSocket
+    async function connect() {
+        socketIo = io("http://localhost:3000");
+        socketIo.on('connect', function() {
+            console.log("connected to mediasoup");
+        })
+        return new Promise((resolve, reject) => {
+            const socket = new SockJS(`${SERVER_URL}/ws`);
+            stompClient = Stomp.over(socket);
+            stompClient.debug = null; // Disable debug logging
+
+            stompClient.connect({}, function(frame) {
+                connectionStatus.textContent = 'Connected';
+                connectionStatus.style.color = '#4caf50';
+
+                // Subscribe to personal messages
+                stompClient.subscribe('/queue/user/' + userId, handleSignal);
+
+                resolve();
+            }, function(error) {
+                connectionStatus.textContent = 'Connection Error';
+                connectionStatus.style.color = '#f44336';
+                reject(error);
+                showNotification('Connection error: ' + error, 'error');
+            });
+        });
+    }
+
+    // Initialize the application
+    function init() {
+        // Add event listeners
+        createRoomButton.addEventListener('click', createRoom);
+        joinRoomButton.addEventListener('click', requestToJoinRoom);
+        leaveRoomButton.addEventListener('click', leaveRoom);
+        toggleAudioButton.addEventListener('click', toggleAudio);
+        toggleVideoButton.addEventListener('click', toggleVideo);
+        shareScreenButton.addEventListener('click', toggleScreenShare);
+        chatInput.addEventListener('keyup', function(event) {
+            if (event.key === 'Enter') sendChatMessage();
+        });
+        sendMessageButton.addEventListener('click', sendChatMessage);
+        cancelJoinRequestButton.addEventListener('click', cancelJoinRequest);
+
+        // Get username
+        usernameInput.addEventListener('change', function() {
+            username = this.value || "User";
+        });
+    }
+
+    // Get ICE servers from backend
+    async function getIceServers() {
+        try {
+            const response = await fetch(`${SERVER_URL}/api/meetings/ice-servers`);
+            return await response.json();
+        } catch (error) {
+            console.error('Error fetching ICE servers:', error);
+            return {
+                iceServers: [
+                    { urls: 'stun:stun.l.google.com:19302' }
+                ]
+            };
+        }
+    }
+
+    // Create a new meeting room
+    async function createRoom() {
+        try {
+            username = usernameInput.value || "User";
+            await connect();
+
+            const response = await fetch(`${SERVER_URL}/api/meetings/create`, {
+                method: 'POST',
+                credentials: 'include',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    hostId: userId,
+                    hostName: username
+                })
+            });
+
+            const data = await response.json();
+            roomId = data.roomId;
+            roomIdInput.value = roomId;
+            console.log(roomId)
+            isHost = true;
+            showNotification('Meeting created successfully. ID: ' + roomId, 'success');
+
+            // Setup local media stream
+            await setupLocalStream();
+
+            // Subscribe to room events
+            stompClient.subscribe('/topic/room/' + roomId, handleRoomEvent);
+
+            // Update UI
+            updateUIForMeetingJoined();
+            showHostControls();
+
+            // Add self to participants list
+            addParticipant({
+                userId: userId,
+                username: username,
+                isHost: true
+            });
+
+            // Send joinRoom message to server
+            stompClient.send("/app/join-room", {}, JSON.stringify({
+                roomId: roomId,
+                userId: userId,
+                username: username,
+                isHost: true
+            }));
+
+        } catch (error) {
+            console.error('Error creating meeting:', error);
+            showNotification('Failed to create meeting: ' + error.message, 'error');
+        }
+    }
+
+    // Request to join an existing room
+    async function requestToJoinRoom() {
+        try {
+            username = usernameInput.value || "User";
+            roomId = roomIdInput.value.trim();
+
+            if (!roomId) {
+                showNotification('Please enter a Meeting ID', 'error');
+                return;
+            }
+
+            await connect();
+
+            // Setup local media stream
+            await setupLocalStream();
+
+            // Subscribe to room events
+            stompClient.subscribe('/topic/room/' + roomId, handleRoomEvent);
+
+            // The key issue is here - we need to match the server's expected format
+            stompClient.send("/app/request-join", {}, JSON.stringify({
+                roomId: roomId,
+                userId: userId,
+                username: username,
+                displayName: username  // Add this field to match server expectations
+            }));
+
+            // Show waiting modal
+            joinRequestModal.style.display = 'block';
+
+        } catch (error) {
+            console.error('Error requesting to join meeting:', error);
+            showNotification('Failed to join meeting: ' + error.message, 'error');
+        }
+    }
+
+    // Cancel join request
+    function cancelJoinRequest() {
+        stompClient.send("/app/cancel-join-request", {}, JSON.stringify({
+            roomId: roomId,
+            userId: userId
+        }));
+
+        joinRequestModal.style.display = 'none';
+        showNotification('Join request cancelled', 'info');
+
+        // Clean up
+        cleanupAfterLeaving();
+    }
+
+    // Setup local media stream
+    async function setupLocalStream() {
+        try {
+            localStream = await navigator.mediaDevices.getUserMedia({
+                audio: true,
+                video: true
+            });
+
+            // Add local video to grid
+            addVideoElement(userId, username, localStream, true);
+
+            return localStream;
+        } catch (error) {
+            console.error('Error accessing media devices:', error);
+            showNotification('Failed to access camera or microphone', 'error');
+            throw error;
+        }
+    }
+
+    // Create and add a video element to the grid
+    function addVideoElement(id, name, stream, isLocal) {
+        const existingContainer = document.getElementById('video-container-' + id);
+        if (existingContainer) {
+            const videoElement = existingContainer.querySelector('video');
+            if (videoElement) {
+                videoElement.srcObject = stream;
+            }
+            return;
+        }
+
+        const videoContainer = document.createElement('div');
+        videoContainer.id = 'video-container-' + id;
+        videoContainer.className = 'video-container';
+
+        const videoElement = document.createElement('video');
+        videoElement.autoplay = true;
+        videoElement.playsInline = true;
+        if (isLocal) videoElement.muted = true;
+        videoElement.srcObject = stream;
+
+        const usernameElement = document.createElement('div');
+        usernameElement.className = 'username';
+        usernameElement.textContent = name + (isLocal ? ' (You)' : '');
+
+        videoContainer.appendChild(videoElement);
+        videoContainer.appendChild(usernameElement);
+        videoGrid.appendChild(videoContainer);
+    }
+
+    // Remove a video element from the grid
+    function removeVideoElement(id) {
+        const videoContainer = document.getElementById('video-container-' + id);
+        if (videoContainer) {
+            videoGrid.removeChild(videoContainer);
+        }
+    }
+
+    // Create a peer connection for a specific user
+    async function createPeerConnection(targetUserId, targetUsername, isInitiator) {
+        const iceConfig = await getIceServers();
+
+        const peerConnection = new RTCPeerConnection(iceConfig);
+        peerConnections[targetUserId] = peerConnection;
+
+        // Add local tracks to the connection
+        if (localStream) {
+            localStream.getTracks().forEach(track => {
+                peerConnection.addTrack(track, localStream);
+            });
+        }
+
+        // Handle ICE candidates
+        peerConnection.onicecandidate = event => {
+            if (event.candidate) {
+                sendSignal({
+                    type: 'ice-candidate',
+                    candidate: event.candidate,
+                    to: targetUserId
+                });
+            }
+        };
+
+        // Handle connection state changes
+        peerConnection.onconnectionstatechange = event => {
+            if (peerConnection.connectionState === 'disconnected' ||
+                peerConnection.connectionState === 'failed' ||
+                peerConnection.connectionState === 'closed') {
+                console.log(`Connection with ${targetUsername} (${targetUserId}) ${peerConnection.connectionState}`);
+            }
+        };
+
+        // Handle incoming tracks
+        peerConnection.ontrack = event => {
+            addVideoElement(targetUserId, targetUsername, event.streams[0], false);
+        };
+
+        // If we're the initiator, create and send offer
+        if (isInitiator) {
+            try {
+                const offer = await peerConnection.createOffer();
+                await peerConnection.setLocalDescription(offer);
+
+                sendSignal({
+                    type: 'offer',
+                    sdp: peerConnection.localDescription,
+                    to: targetUserId,
+                    username: username
+                });
+            } catch (error) {
+                console.error('Error creating offer:', error);
+            }
+        }
+
+        return peerConnection;
+    }
+
+    // Handle room events
+    function handleRoomEvent(message) {
+        const data = JSON.parse(message.body);
+
+        switch (data.type) {
+            case 'user-joined':
+                if (data.userId !== userId) {
+                    showNotification(`${data.username} joined the meeting`, 'info');
+                    addParticipant(data);
+                    createPeerConnection(data.userId, data.username, true);
+                }
+                break;
+
+            case 'user-left':
+                if (data.userId !== userId) {
+                    showNotification(`${data.username} left the meeting`, 'info');
+                    removeParticipant(data.userId);
+                    removeVideoElement(data.userId);
+                    closePeerConnection(data.userId);
+                }
+                break;
+
+            case 'join-request':
+                // This is the critical fix to correctly handle incoming join requests
+                if (isHost) {
+                    addJoinRequest(data);
+                    showNotification(`Join request from ${data.username || data.displayName}`, 'info');
+                }
+                break;
+
+            case 'join-request-approved':
+                if (data.userId === userId) {
+                    joinRequestModal.style.display = 'none';
+                    showNotification('Your join request was approved', 'success');
+                    joinApprovedRoom(data);
+                }
+                break;
+
+            // Rest of the cases remain the same
+            case 'join-request-rejected':
+                if (data.userId === userId) {
+                    joinRequestModal.style.display = 'none';
+                    showNotification('Your join request was rejected by the host', 'error');
+                    cleanupAfterLeaving();
+                }
+                break;
+
+            case 'chat-message':
+                addChatMessage(data);
+                break;
+
+            case 'room-closed':
+                if (data.roomId === roomId && !isHost) {
+                    showNotification('The meeting was ended by the host', 'info');
+                    cleanupAfterLeaving();
+                    updateUIForMeetingLeft();
+                }
+                break;
+        }
+    }
+
+    // Handle WebRTC signaling
+    function handleSignal(message) {
+        const signal = JSON.parse(message.body);
+
+        switch (signal.type) {
+            case 'offer':
+                handleOffer(signal);
+                break;
+
+            case 'answer':
+                handleAnswer(signal);
+                break;
+
+            case 'ice-candidate':
+                handleIceCandidate(signal);
+                break;
+        }
+    }
+
+    // Handle an offer signal
+    async function handleOffer(signal) {
+        try {
+            // Create peer connection if not exists
+            if (!peerConnections[signal.from]) {
+                await createPeerConnection(signal.from, signal.username, false);
+            }
+
+            const peerConnection = peerConnections[signal.from];
+
+            // Set remote description
+            await peerConnection.setRemoteDescription(new RTCSessionDescription(signal.sdp));
+
+            // Create and set local description
+            const answer = await peerConnection.createAnswer();
+            await peerConnection.setLocalDescription(answer);
+
+            // Send answer
+            sendSignal({
+                type: 'answer',
+                sdp: peerConnection.localDescription,
+                to: signal.from,
+                username: username
+            });
+        } catch (error) {
+            console.error('Error handling offer:', error);
+        }
+    }
+
+    // Handle an answer signal
+    async function handleAnswer(signal) {
+        try {
+            const peerConnection = peerConnections[signal.from];
+            if (peerConnection) {
+                await peerConnection.setRemoteDescription(new RTCSessionDescription(signal.sdp));
+            }
+        } catch (error) {
+            console.error('Error handling answer:', error);
+        }
+    }
+
+    // Handle an ICE candidate signal
+    async function handleIceCandidate(signal) {
+        try {
+            const peerConnection = peerConnections[signal.from];
+            if (peerConnection) {
+                await peerConnection.addIceCandidate(new RTCIceCandidate(signal.candidate));
+            }
+        } catch (error) {
+            console.error('Error handling ICE candidate:', error);
+        }
+    }
+
+    // Send a signal to a peer or the room
+    function sendSignal(signal) {
+        signal.roomId = roomId;
+        signal.from = userId;
+
+        stompClient.send("/app/signal", {}, JSON.stringify(signal));
+    }
+
+    // Actions after join request is approved
+    function joinApprovedRoom(data) {
+        // Update UI
+        updateUIForMeetingJoined();
+
+        // Send joined message to establish connections with existing participants
+        stompClient.send("/app/join-room", {}, JSON.stringify({
+            roomId: roomId,
+            userId: userId,
+            username: username
+        }));
+
+        // Add participants
+        if (data.participants) {
+            data.participants.forEach(participant => {
+                if (participant.userId !== userId) {
+                    addParticipant(participant);
+                }
+            });
+        }
+
+        // Add self to participants
+        addParticipant({
+            userId: userId,
+            username: username
+        });
+    }
+
+    // Leave the current room
+    function leaveRoom() {
+        if (!roomId) return;
+
+        stompClient.send("/app/leave-room", {}, JSON.stringify({
+            roomId: roomId,
+            userId: userId,
+            username: username,
+            isHost: isHost
+        }));
+
+        cleanupAfterLeaving();
+        updateUIForMeetingLeft();
+    }
+
+    // Clean up connections and streams
+    function cleanupAfterLeaving() {
+        // Close all peer connections
+        Object.keys(peerConnections).forEach(peerId => {
+            closePeerConnection(peerId);
+        });
+        peerConnections = {};
+
+        // Stop local streams
+        if (localStream) {
+            localStream.getTracks().forEach(track => track.stop());
+            localStream = null;
+        }
+
+        if (localScreenStream) {
+            localScreenStream.getTracks().forEach(track => track.stop());
+            localScreenStream = null;
+        }
+
+        // Clear video grid
+        videoGrid.innerHTML = '';
+
+        // Clear participants list
+        participants = [];
+        updateParticipantsList();
+
+        // Clear chat
+        chatMessages.innerHTML = '';
+
+        // Reset variables
+        roomId = null;
+        isHost = false;
+        pendingRequests = [];
+        isScreenSharing = false;
+    }
+
+    // Close a specific peer connection
+    function closePeerConnection(peerId) {
+        const connection = peerConnections[peerId];
+        if (connection) {
+            connection.close();
+            delete peerConnections[peerId];
+        }
+    }
+
+    // Toggle audio mute state
+    function toggleAudio() {
+        if (localStream) {
+            const audioTracks = localStream.getAudioTracks();
+            if (audioTracks.length > 0) {
+                const enabled = !audioTracks[0].enabled;
+                audioTracks.forEach(track => {
+                    track.enabled = enabled;
+                });
+                isAudioEnabled = enabled;
+                toggleAudioButton.textContent = enabled ? 'Mute Audio' : 'Unmute Audio';
+                showNotification(`Audio ${enabled ? 'unmuted' : 'muted'}`, 'info');
+            }
+        }
+    }
+
+    // Toggle video state
+    function toggleVideo() {
+        if (localStream) {
+            const videoTracks = localStream.getVideoTracks();
+            if (videoTracks.length > 0) {
+                const enabled = !videoTracks[0].enabled;
+                videoTracks.forEach(track => {
+                    track.enabled = enabled;
+                });
+                isVideoEnabled = enabled;
+                toggleVideoButton.textContent = enabled ? 'Turn Off Video' : 'Turn On Video';
+                showNotification(`Video ${enabled ? 'on' : 'off'}`, 'info');
+            }
+        }
+    }
+
+    // Toggle screen sharing
+    async function toggleScreenShare() {
+        if (isScreenSharing) {
+            // Stop screen sharing
+            if (localScreenStream) {
+                localScreenStream.getTracks().forEach(track => track.stop());
+                localScreenStream = null;
+            }
+
+            // Restore camera video
+            await setupLocalStream();
+
+            // Replace tracks in all peer connections
+            Object.keys(peerConnections).forEach(async (peerId) => {
+                const senders = peerConnections[peerId].getSenders();
+                const videoSender = senders.find(sender => sender.track && sender.track.kind === 'video');
+                if (videoSender && localStream) {
+                    const videoTrack = localStream.getVideoTracks()[0];
+                    if (videoTrack) {
+                        await videoSender.replaceTrack(videoTrack);
+                    }
+                }
+            });
+
+            shareScreenButton.textContent = 'Share Screen';
+            isScreenSharing = false;
+            showNotification('Screen sharing stopped', 'info');
+
+        } else {
+            // Start screen sharing
+            try {
+                localScreenStream = await navigator.mediaDevices.getDisplayMedia({
+                    video: true
+                });
+
+                // Replace video track in all peer connections
+                const videoTrack = localScreenStream.getVideoTracks()[0];
+
+                // Replace local video display
+                const videoElement = document.querySelector('#video-container-' + userId + ' video');
+                if (videoElement) {
+                    const stream = new MediaStream([videoTrack]);
+                    if (localStream) {
+                        const audioTrack = localStream.getAudioTracks()[0];
+                        if (audioTrack) stream.addTrack(audioTrack);
+                    }
+                    videoElement.srcObject = stream;
+                }
+
+                // Replace tracks in all peer connections
+                Object.keys(peerConnections).forEach(async (peerId) => {
+                    const senders = peerConnections[peerId].getSenders();
+                    const videoSender = senders.find(sender => sender.track && sender.track.kind === 'video');
+                    if (videoSender) {
+                        await videoSender.replaceTrack(videoTrack);
+                    }
+                });
+
+                // Listen for the end of screen sharing
+                videoTrack.addEventListener('ended', () => {
+                    toggleScreenShare();
+                });
+
+                shareScreenButton.textContent = 'Stop Sharing';
+                isScreenSharing = true;
+                showNotification('Screen sharing started', 'success');
+
+            } catch (error) {
+                console.error('Error sharing screen:', error);
+                showNotification('Failed to share screen: ' + error.message, 'error');
+            }
+        }
+    }
+
+    // Send a chat message
+    function sendChatMessage() {
+        const message = chatInput.value.trim();
+        if (!message || !roomId) return;
+
+        stompClient.send("/app/chat", {}, JSON.stringify({
+            roomId: roomId,
+            userId: userId,
+            username: username,
+            message: message,
+            timestamp: new Date().getTime()
+        }));
+
+        chatInput.value = '';
+    }
+
+    // Add a chat message to the chat container
+    function addChatMessage(data) {
+        const messageElement = document.createElement('div');
+        messageElement.className = `message ${data.userId === userId ? 'sent' : 'received'}`;
+
+        const senderElement = document.createElement('div');
+        senderElement.className = 'sender';
+        senderElement.textContent = data.userId === userId ? 'You' : data.username;
+
+        const contentElement = document.createElement('div');
+        contentElement.className = 'content';
+        contentElement.textContent = data.message;
+
+        const timeElement = document.createElement('div');
+        timeElement.className = 'time';
+        const messageTime = new Date(data.timestamp);
+        timeElement.textContent = messageTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+        messageElement.appendChild(senderElement);
+        messageElement.appendChild(contentElement);
+        messageElement.appendChild(timeElement);
+
+        chatMessages.appendChild(messageElement);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    // Add a join request to the pending requests list
+    function addJoinRequest(request) {
+        pendingRequests.push(request);
+        updateRequestsList();
+        showNotification(`Join request from ${request.username}`, 'info');
+    }
+
+    // Update the pending requests list in the UI
+    function updateRequestsList() {
+        requestsList.innerHTML = '';
+
+        if (pendingRequests.length === 0) {
+            const emptyMessage = document.createElement('div');
+            emptyMessage.className = 'empty-message';
+            emptyMessage.textContent = 'No pending requests';
+            requestsList.appendChild(emptyMessage);
+            return;
+        }
+
+        pendingRequests.forEach(request => {
+            const requestItem = document.createElement('div');
+            requestItem.className = 'request-item';
+
+            const userInfo = document.createElement('div');
+            userInfo.textContent = request.username;
+
+            const actionButtons = document.createElement('div');
+            actionButtons.className = 'request-actions';
+
+            const approveButton = document.createElement('button');
+            approveButton.className = 'success';
+            approveButton.textContent = 'Approve';
+            approveButton.onclick = () => approveJoinRequest(request.userId);
+
+            const rejectButton = document.createElement('button');
+            rejectButton.className = 'danger';
+            rejectButton.textContent = 'Reject';
+            rejectButton.onclick = () => rejectJoinRequest(request.userId);
+
+            actionButtons.appendChild(approveButton);
+            actionButtons.appendChild(rejectButton);
+
+            requestItem.appendChild(userInfo);
+            requestItem.appendChild(actionButtons);
+
+            requestsList.appendChild(requestItem);
+        });
+    }
+
+    // Approve a join request
+    function approveJoinRequest(userId) {
+        const requestIndex = pendingRequests.findIndex(r => r.userId === userId);
+        if (requestIndex !== -1) {
+            const request = pendingRequests[requestIndex];
+            pendingRequests.splice(requestIndex, 1);
+
+            stompClient.send("/app/approve-join-request", {}, JSON.stringify({
+                roomId: roomId,
+                userId: request.userId,
+                participants: participants
+            }));
+
+            updateRequestsList();
+            showNotification(`Approved join request from ${request.username}`, 'success');
+        }
+    }
+
+    // Reject a join request
+    function rejectJoinRequest(userId) {
+        const requestIndex = pendingRequests.findIndex(r => r.userId === userId);
+        if (requestIndex !== -1) {
+            const request = pendingRequests[requestIndex];
+            pendingRequests.splice(requestIndex, 1);
+
+            stompClient.send("/app/reject-join-request", {}, JSON.stringify({
+                roomId: roomId,
+                userId: request.userId
+            }));
+
+            updateRequestsList();
+            showNotification(`Rejected join request from ${request.username}`, 'info');
+        }
+    }
+
+    // Add a participant to the participants list
+    function addParticipant(participant) {
+        const existingIndex = participants.findIndex(p => p.userId === participant.userId);
+        if (existingIndex !== -1) {
+            participants[existingIndex] = participant;
+        } else {
+            participants.push(participant);
+        }
+
+        updateParticipantsList();
+    }
+
+    // Remove a participant from the participants list
+    function removeParticipant(userId) {
+        const index = participants.findIndex(p => p.userId === userId);
+        if (index !== -1) {
+            participants.splice(index, 1);
+            updateParticipantsList();
+        }
+    }
+
+    // Update the participants list in the UI
+    function updateParticipantsList() {
+        participantsList.innerHTML = '';
+
+        if (participants.length === 0) {
+            const emptyMessage = document.createElement('div');
+            emptyMessage.className = 'empty-message';
+            emptyMessage.textContent = 'No participants in the meeting';
+            participantsList.appendChild(emptyMessage);
+            return;
+        }
+
+        participants.forEach(participant => {
+            const participantItem = document.createElement('div');
+            participantItem.className = 'participant-item';
+
+            const participantInfo = document.createElement('div');
+            participantInfo.textContent = participant.username + (participant.isHost ? ' (Host)' : '') +
+                (participant.userId === userId ? ' (You)' : '');
+
+            participantItem.appendChild(participantInfo);
+
+            // Add remove button if host (except for self)
+            if (isHost && participant.userId !== userId) {
+                const removeButton = document.createElement('button');
+                removeButton.className = 'danger';
+                removeButton.textContent = 'Remove';
+                removeButton.onclick = () => removeParticipantFromMeeting(participant.userId);
+                participantItem.appendChild(removeButton);
+            }
+
+            participantsList.appendChild(participantItem);
+        });
+    }
+
+    // Remove a participant from the meeting (host only)
+    function removeParticipantFromMeeting(userId) {
+        if (!isHost) return;
+
+        stompClient.send("/app/remove-participant", {}, JSON.stringify({
+            roomId: roomId,
+            userId: userId
+        }));
+    }
+
+    // Show host controls
+    function showHostControls() {
+        hostControls.style.display = 'block';
+    }
+
+    // Update UI for joining a meeting
+    function updateUIForMeetingJoined() {
+        createRoomButton.disabled = true;
+        joinRoomButton.disabled = true;
+        leaveRoomButton.disabled = false;
+        toggleAudioButton.disabled = false;
+        toggleVideoButton.disabled = false;
+        shareScreenButton.disabled = false;
+        chatInput.disabled = false;
+        sendMessageButton.disabled = false;
+        usernameInput.disabled = true;
+        roomIdInput.disabled = true;
+    }
+
+    // Update UI for leaving a meeting
+    function updateUIForMeetingLeft() {
+        createRoomButton.disabled = false;
+        joinRoomButton.disabled = false;
+        leaveRoomButton.disabled = true;
+        toggleAudioButton.disabled = true;
+        toggleVideoButton.disabled = true;
+        shareScreenButton.disabled = true;
+        chatInput.disabled = true;
+        sendMessageButton.disabled = true;
+        usernameInput.disabled = false;
+        roomIdInput.disabled = false;
+        hostControls.style.display = 'none';
+
+        // Reset button texts
+        toggleAudioButton.textContent = 'Mute Audio';
+        toggleVideoButton.textContent = 'Turn Off Video';
+        shareScreenButton.textContent = 'Share Screen';
+    }
+
+    // Show a notification
+    function showNotification(message, type = 'info') {
+        const notification = document.createElement('div');
+        notification.className = 'notification ' + type;
+        notification.textContent = message;
+
+        const notifications = document.getElementById('notifications');
+        notifications.appendChild(notification);
+
+        // Remove notification after 5 seconds
+        setTimeout(() => {
+            if (notification.parentNode === notifications) {
+                notifications.removeChild(notification);
+            }
+        }, 5000);
+    }
+
+    // Initialize the application
+    init();
+</script>
+</body>
+</html>

@@ -8,9 +8,12 @@ import com.nexmeet.repository.UserRepository;
 import com.nexmeet.service.AuthService;
 import com.nexmeet.util.JwtUtil;
 import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.HttpClientErrorException;
 
@@ -68,7 +71,7 @@ public class AuthController {
     }
 
     @PostMapping("/logout")
-    public ResponseEntity<String> logout(@CookieValue(value = "accessToken", required = false) String accessToken,
+    public ResponseEntity<String> logout(HttpServletRequest request, @CookieValue(value = "accessToken", required = false) String accessToken,
                                          @CookieValue(value = "refreshToken", required = false) String refreshToken,
                                          HttpServletResponse response) {
         // Remove refresh token from the database
@@ -80,9 +83,21 @@ public class AuthController {
             });
         }
 
+        SecurityContextHolder.clearContext();
+
+        // Invalidate HTTP session
+        HttpSession session = request.getSession(false);
+        if (session != null) {
+            session.invalidate();
+        }
+
         // Expire cookies
         expireCookie(response, "accessToken");
         expireCookie(response, "refreshToken");
+        expireCookie(response, "JSESSIONID");
+
+        // Also expire any OAuth2 related cookies
+        expireCookie(response, "JSESSIONID.OAuth2");
 
         return ResponseEntity.ok("Logout successful!");
     }

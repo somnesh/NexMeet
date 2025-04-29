@@ -15,6 +15,4 @@ public class AuthResponse {
         this.refreshToken = refreshToken;
         this.message = message;
     }
-
-    // Getters and Setters
 }

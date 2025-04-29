@@ -1,7 +1,9 @@
 package com.nexmeet.config;
 
 import com.nexmeet.security.CustomAuthenticationProvider;
+import com.nexmeet.security.JwtAuthenticationEntryPoint;
 import com.nexmeet.security.JwtFilter;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -25,13 +27,14 @@ public class SecurityConfig {
     public SecurityConfig(JwtFilter jwtFilter) {
         this.jwtFilter = jwtFilter;
     }
+    private JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
 
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(AbstractHttpConfigurer::disable)
-                .cors(cors -> cors.configure(http)) // Enable CORS
+                .cors(cors -> cors.configure(http))
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED)
                 )
@@ -39,13 +42,27 @@ public class SecurityConfig {
                         .requestMatchers("api/health-check").permitAll()
                         .requestMatchers("api/auth/**").permitAll()
                         .requestMatchers("/api/oauth/**", "/oauth2/**").permitAll()
-                        .requestMatchers("/api/admin/**").hasAuthority("ROLE_ADMIN") // Admin-only
+                        .requestMatchers("/ws/**").permitAll()
+                        .requestMatchers("/api/admin/**").hasAuthority("ROLE_ADMIN")
                         .anyRequest().authenticated()
                 )
                 .oauth2Login(oauth2 -> oauth2
-                        .defaultSuccessUrl("/api/oauth/google-success", true) // Redirect after success
+                        .defaultSuccessUrl("/api/oauth/google-success", true)
                 )
-                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class); // Add JWT filter;
+                .exceptionHandling(exceptions -> exceptions
+                        .authenticationEntryPoint((request, response, authException) -> {
+                            // Check if the request is an API request
+                            if (request.getRequestURI().startsWith("/api/")) {
+                                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                                response.setContentType("application/json");
+                                response.getWriter().write("{\"error\":\"Unauthorized\",\"message\":\"Authentication required\"}");
+                            } else {
+                                // For non-API requests, redirect to login page
+                                response.sendRedirect("/oauth2/authorization/google");
+                            }
+                        })
+                )
+                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }

@@ -5,6 +5,7 @@ import HomePage from "./pages/HomePage";
 import VideoCallInterface from "./pages/VideoCallInterface";
 import { Toaster } from "./components/ui/sonner";
 import { ThemeProvider } from "./contexts/Theme";
+import PreJoinPage from "./pages/PreJoinPage";
 
 const router = createBrowserRouter([
   {
@@ -18,6 +19,10 @@ const router = createBrowserRouter([
   {
     path: "/call",
     element: <VideoCallInterface />,
+  },
+  {
+    path: "/join",
+    element: <PreJoinPage />,
   },
 ]);
 

@@ -4,7 +4,7 @@ const API_URL = import.meta.env.VITE_API_URL;
 const SERVER_URL = import.meta.env.VITE_SERVER_URL;
 
 const API = axios.create({
-  baseURL: "http://localhost:8090/api",
+  baseURL: API_URL,
   withCredentials: true, // Ensures cookies are sent with requests
 });
 
@@ -17,7 +17,7 @@ API.interceptors.response.use(
 
       try {
         // Request a new access token using refresh token (sent via HTTP-only cookie)
-        await axios.post(`http://localhost:8090/api/auth/access-token`, null, {
+        await axios.post(`${API_URL}/auth/access-token`, null, {
           withCredentials: true, // Send HTTP-only cookies
         });
 

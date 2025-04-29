@@ -69,7 +69,7 @@ public class OAuth2Controller {
         }
 
         // Generate JWT token
-        String accessToken = JwtUtil.generateAccessToken(email);
+        String accessToken = JwtUtil.generateAccessToken(String.valueOf(user.getId()), email);
         String refreshToken = JwtUtil.generateRefreshToken(email);
 
         // Store refresh token in database

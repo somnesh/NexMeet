@@ -23,9 +23,10 @@ public class JwtUtil {
         return Keys.hmacShaKeyFor(keyBytes);
     }
 
-    public static String generateAccessToken(String email) {
+    public static String generateAccessToken(String userId, String email) {
         return Jwts.builder()
                 .subject(email)
+                .claim("userId", userId)
                 .issuedAt(new Date(System.currentTimeMillis()))
                 .expiration(new Date(System.currentTimeMillis() + ACCESS_TOKEN_EXPIRATION))
                 .signWith(getSigningKey(), Jwts.SIG.HS256)
@@ -56,6 +57,10 @@ public class JwtUtil {
 
     public static String extractEmail(String token) {
         return extractClaim(token, Claims::getSubject);
+    }
+
+    public static String extractUserId(String token) {
+        return extractAllClaims(token).get("userId", String.class);
     }
 
     // Check if Token is Expired

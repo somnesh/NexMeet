@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WebSocket and MediaSoup Test</title>
+    <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.6.1/socket.io.min.js"></script>
+</head>
+<body>
+<h1>WebSocket and MediaSoup Test</h1>
+
+<div>
+    <h2>Spring WebSocket</h2>
+    <button onclick="connectWebSocket()">Connect WebSocket</button>
+    <button onclick="disconnectWebSocket()">Disconnect WebSocket</button>
+    <div id="wsStatus">Disconnected</div>
+</div>
+
+<div>
+    <h2>MediaSoup Socket.io</h2>
+    <button onclick="connectMediaSoup()">Connect MediaSoup</button>
+    <button onclick="disconnectMediaSoup()">Disconnect MediaSoup</button>
+    <div id="msStatus">Disconnected</div>
+</div>
+
+<script>
+    // WebSocket (STOMP) client
+    let stompClient = null;
+
+    function connectWebSocket() {
+        const socket = new SockJS('http://localhost:8090/ws');
+        stompClient = Stomp.over(socket);
+        stompClient.connect({}, function(frame) {
+            document.getElementById('wsStatus').textContent = 'Connected: ' + frame;
+            stompClient.subscribe('/topic/test', function(message) {
+                console.log('WebSocket Received: ' + message.body);
+            });
+        }, function(error) {
+            document.getElementById('wsStatus').textContent = 'Error: ' + error;
+        });
+    }
+
+    function disconnectWebSocket() {
+        if (stompClient !== null) {
+            stompClient.disconnect();
+        }
+        document.getElementById('wsStatus').textContent = 'Disconnected';
+    }
+
+    // Socket.io client for MediaSoup
+    let socketio = null;
+
+    function connectMediaSoup() {
+        socketio = io('http://localhost:3000');
+
+        socketio.on('connect', () => {
+            document.getElementById('msStatus').textContent = 'Connected to MediaSoup: ' + socketio.id;
+            console.log('Connected to MediaSoup server');
+        });
+
+        socketio.on('disconnect', () => {
+            document.getElementById('msStatus').textContent = 'Disconnected from MediaSoup';
+            console.log('Disconnected from MediaSoup server');
+        });
+
+        socketio.on('error', (error) => {
+            document.getElementById('msStatus').textContent = 'MediaSoup Error: ' + error;
+            console.error('MediaSoup error:', error);
+        });
+
+        // Add more event handlers for MediaSoup functionality
+        // For example:
+        socketio.on('room-created', (data) => {
+            console.log('Room created:', data);
+        });
+    }
+
+    function disconnectMediaSoup() {
+        if (socketio) {
+            socketio.disconnect();
+        }
+        document.getElementById('msStatus').textContent = 'Disconnected';
+    }
+
+    // Example of joining a room (you would need to implement this)
+    function joinRoom(roomId) {
+        if (socketio && socketio.connected) {
+            socketio.emit('join-room', { roomId });
+        } else {
+            console.error('Socket.io not connected');
+        }
+    }
+</script>
+</body>
+</html>

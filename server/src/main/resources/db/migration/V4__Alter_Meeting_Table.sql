@@ -1,0 +1,1 @@
+ALTER TABLE meetings ADD COLUMN code VARCHAR(255) NOT NULL unique;

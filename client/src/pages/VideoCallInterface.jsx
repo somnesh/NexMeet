@@ -237,42 +237,28 @@ export default function VideoCallInterface() {
 
   // Effect to simulate local video
   useEffect(() => {
-    if (localVideoRef.current && !isCameraOff) {
-      // In a real implementation, this would use getUserMedia
-      // For this demo, we'll use a placeholder
-      const canvas = document.createElement("canvas");
-      canvas.width = 640;
-      canvas.height = 480;
-      const ctx = canvas.getContext("2d");
+    let stream;
 
-      const drawPlaceholder = () => {
-        if (!localVideoRef.current) return;
-
-        ctx.fillStyle = "#1f2937";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-        ctx.font = "20px sans-serif";
-        ctx.fillStyle = "white";
-        ctx.textAlign = "center";
-        ctx.fillText("Your Camera", canvas.width / 2, canvas.height / 2);
-
-        // Convert canvas to video stream
-        try {
-          localVideoRef.current.srcObject = canvas.captureStream();
-        } catch (err) {
-          console.error("Error creating stream:", err);
+    const startCamera = async () => {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        if (localVideoRef.current) {
+          localVideoRef.current.srcObject = stream;
         }
-      };
+      } catch (err) {
+        console.error("Error accessing camera:", err);
+      }
+    };
 
-      drawPlaceholder();
-
-      return () => {
-        if (localVideoRef.current && localVideoRef.current.srcObject) {
-          const tracks = localVideoRef.current.srcObject.getTracks();
-          tracks.forEach((track) => track.stop());
-        }
-      };
+    if (!isCameraOff) {
+      startCamera();
     }
+
+    return () => {
+      if (stream) {
+        stream.getTracks().forEach((track) => track.stop());
+      }
+    };
   }, [isCameraOff]);
 
   // Effect to scroll chat to bottom on initial load

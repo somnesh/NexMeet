@@ -56,7 +56,7 @@ public class AuthService {
 
         userRepository.save(user);
 
-        String accessToken = JwtUtil.generateAccessToken(request.getEmail());
+        String accessToken = JwtUtil.generateAccessToken(String.valueOf(user.getId()), request.getEmail());
         String refreshToken = JwtUtil.generateRefreshToken(request.getEmail());
 
         // Set Access Token as HttpOnly Cookie
@@ -75,13 +75,16 @@ public class AuthService {
 
         UserDetails userDetails = (UserDetails) authentication.getPrincipal();
 
-        // Generate Access & Refresh Tokens
-        String accessToken = JwtUtil.generateAccessToken(userDetails.getUsername());
-        String refreshToken = JwtUtil.generateRefreshToken(userDetails.getUsername());
+
 
         // Store refresh token in database
         User user = userRepository.findByEmail(userDetails.getUsername())
                 .orElseThrow(() -> new CredentialException("User not found"));
+
+        // Generate Access & Refresh Tokens
+        String accessToken = JwtUtil.generateAccessToken(String.valueOf(user.getId()), userDetails.getUsername());
+        String refreshToken = JwtUtil.generateRefreshToken(userDetails.getUsername());
+
         user.setRefreshToken(refreshToken);
         userRepository.save(user);
 
@@ -109,13 +112,16 @@ public class AuthService {
             throw new UsernameNotFoundException("User not found");
         }
 
-        // Generate Access & Refresh Tokens
-        String accessToken = JwtUtil.generateAccessToken(userDetails.getUsername());
-        String refreshToken = JwtUtil.generateRefreshToken(userDetails.getUsername());
+
 
         // Store refresh token in database
         User user = userRepository.findByEmail(userDetails.getUsername())
                 .orElseThrow(() -> new CredentialException("User not found"));
+
+        // Generate Access & Refresh Tokens
+        String accessToken = JwtUtil.generateAccessToken(String.valueOf(user.getId()),userDetails.getUsername());
+        String refreshToken = JwtUtil.generateRefreshToken(userDetails.getUsername());
+
         user.setRefreshToken(refreshToken);
         userRepository.save(user);
 
