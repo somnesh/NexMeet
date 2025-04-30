@@ -7,9 +7,14 @@ import com.nexmeet.model.Meeting;
 import com.nexmeet.model.User;
 import com.nexmeet.repository.MeetingRepository;
 import com.nexmeet.repository.UserRepository;
+import com.nexmeet.util.MeetingCodeGenerator;
 import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
 import java.util.Optional;
@@ -25,17 +30,19 @@ public class MeetingService {
         this.userRepository = userRepository;
     }
 
-    public CreateMeetingResponse createMeeting(CreateMeetingRequest request, String userId) {
-        User host = userRepository.findById(UUID.fromString(userId)).orElseThrow(
+    @Transactional
+    public CreateMeetingResponse createMeeting(CreateMeetingRequest request, String userEmail) {
+        User host = userRepository.findByEmail(userEmail).orElseThrow(
                 () -> new RuntimeException("Host not found")
         );
 
         Meeting meeting = new Meeting();
-        meeting.setCode(UUID.randomUUID().toString().substring(0, 8));
-        meeting.setTitle(request.getTitle());
+        String code = MeetingCodeGenerator.generateMeetingCode();
+
+        meeting.setCode(code);
+        meeting.setTitle(request.getTitle() != null ? request.getTitle() : "Instant Meeting");
         meeting.setHost(host);
         meeting.setStartTime(Instant.now());
-
         meetingRepository.save(meeting);
 
         return new CreateMeetingResponse(meeting.getCode(), meeting.getTitle(), meeting.getStatus());
@@ -48,11 +55,11 @@ public class MeetingService {
     public JoinMeetingResponse askToJoinMeeting(String code, String userId) {
         Optional<Meeting> meeting = meetingRepository.findByCode(code);
 //        Check if the meeting exists or not
-        if(meeting.isPresent()) {
-            System.out.println(meeting.get().getId());
+        if(meeting.isEmpty()) {
+            throw new ResponseStatusException(HttpStatusCode.valueOf(404), "Meeting not found");
         }
 //        if exists create add a new record into the participant table
-        return new JoinMeetingResponse("", "");
+        return new JoinMeetingResponse(meeting.get().getCode(), meeting.get().getStatus());
     }
 
 }
