@@ -23,7 +23,6 @@ public class Meeting {
     @JoinColumn(name = "host_id", nullable = false)
     private User host;
 
-    @Column(nullable = false)
     private String title;
 
     @Column(nullable = false)
