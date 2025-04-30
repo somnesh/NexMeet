@@ -1,5 +1,6 @@
 package com.nexmeet.dto;
 
+import com.nexmeet.model.MeetingStatus;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 
@@ -7,5 +8,5 @@ import lombok.Data;
 @AllArgsConstructor
 public class JoinMeetingResponse {
     private String code;
-    private String currentStatus;
+    private MeetingStatus currentStatus;
 }
