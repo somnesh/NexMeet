@@ -1,9 +1,7 @@
 package com.nexmeet.controller;
 
 import com.nexmeet.config.WebRTCConfig;
-import com.nexmeet.dto.CreateMeetingRequest;
-import com.nexmeet.dto.CreateMeetingResponse;
-import com.nexmeet.dto.JoinMeetingResponse;
+import com.nexmeet.dto.*;
 import com.nexmeet.model.Meeting;
 import com.nexmeet.model.User;
 import com.nexmeet.service.MediaSoupService;
@@ -46,13 +44,31 @@ public class MeetingController {
         return meetingService.createMeeting(request, userEmail);
     }
 
-    @GetMapping("/{code}")
+    @PostMapping("/{code}")
     public JoinMeetingResponse askToJoinMeeting(@PathVariable String code, @CookieValue(value = "accessToken", required = false) String accessToken) {
         if (accessToken == null) {
             throw new ResponseStatusException(HttpStatusCode.valueOf(401), "Unauthorized");
         }
         String userEmail = JwtUtil.extractEmail(accessToken);
         return meetingService.askToJoinMeeting(code, userEmail);
+    }
+
+    @PostMapping("/{code}/accept")
+    public AskToJoinMeetingResponse acceptMeeting(@RequestBody AskToJoinMeetingRequest request, @PathVariable String code, @CookieValue(value = "accessToken", required = false) String accessToken) {
+        if (accessToken == null) {
+            throw new ResponseStatusException(HttpStatusCode.valueOf(401), "Unauthorized");
+        }
+        String userEmail = JwtUtil.extractEmail(accessToken);
+        return meetingService.acceptMeeting(code, userEmail, request.getParticipantId());
+    }
+
+    @PostMapping("/{code}/reject")
+    public AskToJoinMeetingResponse rejectMeeting(@RequestBody AskToJoinMeetingRequest request,@PathVariable String code, @CookieValue(value = "accessToken", required = false) String accessToken) {
+        if (accessToken == null) {
+            throw new ResponseStatusException(HttpStatusCode.valueOf(401), "Unauthorized");
+        }
+        String userEmail = JwtUtil.extractEmail(accessToken);
+        return meetingService.rejectMeeting(code, userEmail, request.getParticipantId());
     }
 
     @GetMapping("/ice-servers")
