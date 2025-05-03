@@ -30,8 +30,7 @@ public class Participant {
         this.status = ParticipantStatus.WAITING;
     }
 
-    @Column(nullable = false)
-    private Instant joinedAt = Instant.now();
+    private Instant joinedAt;
 
     private Instant leftAt;
 }
