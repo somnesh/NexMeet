@@ -1,0 +1,1 @@
+ALTER TABLE participants ALTER COLUMN joined_at DROP DEFAULT;
