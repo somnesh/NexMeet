@@ -10,4 +10,5 @@ public class CreateMeetingResponse {
     private String code;
     private String title;
     private MeetingStatus status;
+    private String message;
 }
