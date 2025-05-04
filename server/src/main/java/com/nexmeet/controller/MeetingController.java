@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.Map;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/meeting")
@@ -69,6 +70,33 @@ public class MeetingController {
         }
         String userEmail = JwtUtil.extractEmail(accessToken);
         return meetingService.rejectMeeting(code, userEmail, request.getParticipantId());
+    }
+
+    @PostMapping("/{code}/leave")
+    public CreateMeetingResponse leaveMeeting(@PathVariable String code, @CookieValue(value = "accessToken", required = false) String accessToken) {
+        if (accessToken == null) {
+            throw new ResponseStatusException(HttpStatusCode.valueOf(401), "Unauthorized");
+        }
+        UUID userId = UUID.fromString(JwtUtil.extractUserId(accessToken));
+        return meetingService.leaveMeeting(code, userId);
+    }
+
+    @PostMapping("/{code}/end")
+    public CreateMeetingResponse endMeeting(@PathVariable String code, @CookieValue(value = "accessToken", required = false) String accessToken) {
+        if (accessToken == null) {
+            throw new ResponseStatusException(HttpStatusCode.valueOf(401), "Unauthorized");
+        }
+        String userEmail = JwtUtil.extractEmail(accessToken);
+        return meetingService.endMeeting(code, userEmail);
+    }
+
+    @PostMapping("/{code}/kick/{participantId}")
+    public CreateMeetingResponse kickParticipant(@PathVariable String code, @PathVariable String participantId, @CookieValue(value = "accessToken", required = false) String accessToken) {
+        if (accessToken == null) {
+            throw new ResponseStatusException(HttpStatusCode.valueOf(401), "Unauthorized");
+        }
+        String userEmail = JwtUtil.extractEmail(accessToken);
+        return meetingService.kickParticipant(code, userEmail, participantId);
     }
 
     @GetMapping("/ice-servers")
