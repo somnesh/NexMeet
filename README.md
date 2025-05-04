@@ -5,6 +5,7 @@ NexMeet is a next-gen video conferencing platform with AI-powered transcription 
 ## Tech Stack
 
 ### Backend
+
 - **Spring Boot 3.4.3** (Maven, Java 21)
 - Spring Security
 - OAuth2 Client
@@ -12,15 +13,21 @@ NexMeet is a next-gen video conferencing platform with AI-powered transcription 
 - Actuator
 - Lombok
 - DevTools
+- **Flyway** (for database migrations)
+- **JWT (JSON Web Tokens)** (for authentication)
 
 Spring Initializr link: [Spring Boot Project Setup](https://start.spring.io/#!type=maven-project&language=java&platformVersion=3.4.3&packaging=jar&jvmVersion=21&groupId=com.nexmeet&artifactId=nexmeet-service&name=NexMeetApplication&description=A%20next-gen%20video%20conferencing%20platform%20with%20AI-powered%20transcription%20and%20meeting%20summaries.&packageName=com.nexmeet.nexmeet-service&dependencies=web,security,data-jpa,oauth2-client,actuator,lombok,devtools)
 
 ### Frontend
+
 - **React.js (Vite)**
 - Tailwind CSS
 - ShadCN
+- **Socket.IO** (for real-time communication)
+- **Mediasoup** (for WebRTC-based video conferencing)
 
 ### Database
+
 - **PostgreSQL (Supabase)**
 
 ## Prerequisites
@@ -37,22 +44,30 @@ Spring Initializr link: [Spring Boot Project Setup](https://start.spring.io/#!ty
 ### Backend Setup (Spring Boot)
 
 1. Clone the repository:
+
    ```sh
    git clone https://github.com/somnesh/NexMeet.git
-   cd nexmeet/backend
+   cd nexmeet/server
    ```
 
 2. Open the project in IntelliJ IDEA (or any preferred IDE).
 
 3. Configure the PostgreSQL database in `application.properties` or `application.yml`:
+
    ```properties
    spring.datasource.url=jdbc:postgresql://your-supabase-url:5432/your-database
    spring.datasource.username=your-db-username
    spring.datasource.password=your-db-password
-   spring.jpa.hibernate.ddl-auto=update
+   spring.jpa.hibernate.ddl-auto=validate
    ```
 
-4. Run the backend service:
+4. Run database migrations using Flyway:
+
+   ```sh
+   mvn flyway:migrate
+   ```
+
+5. Run the backend service:
    ```sh
    mvn spring-boot:run
    ```
@@ -60,11 +75,13 @@ Spring Initializr link: [Spring Boot Project Setup](https://start.spring.io/#!ty
 ### Frontend Setup (React.js with Vite)
 
 1. Navigate to the frontend directory:
+
    ```sh
-   cd ../frontend
+   cd ../client
    ```
 
 2. Install dependencies:
+
    ```sh
    npm install
    ```
@@ -80,10 +97,14 @@ Spring Initializr link: [Spring Boot Project Setup](https://start.spring.io/#!ty
 - Open the frontend in your browser at `http://localhost:5173` (default Vite port).
 - The backend should be running at `http://localhost:8090` (you can change Spring Boot port in the `application.properties` file).
 
-## Deployment
+### Key Features
 
-- The backend can be deployed to any cloud provider supporting Java applications.
-- The frontend can be deployed using platforms like Vercel, Netlify, or traditional hosting services.
+- **Authentication**: OAuth2 with Google and JWT-based authentication.
+- **Real-time Communication**: WebSocket and Socket.IO for real-time messaging and signaling.
+- **Video Conferencing**: WebRTC-based video conferencing using Mediasoup.
+- **Database Migrations**: Managed using Flyway.
+- **Role-based Access Control**: Admin and user roles with Spring Security.
+- **Meeting Management**: Create, join, leave, and manage participants in meetings.
 
 ## Contribution
 
@@ -92,4 +113,3 @@ Spring Initializr link: [Spring Boot Project Setup](https://start.spring.io/#!ty
 3. Commit your changes: `git commit -m "Added new feature"`
 4. Push to the branch: `git push origin feature-branch`
 5. Open a pull request.
-
