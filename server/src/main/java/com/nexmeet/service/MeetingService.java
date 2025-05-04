@@ -4,10 +4,7 @@ import com.nexmeet.dto.AskToJoinMeetingResponse;
 import com.nexmeet.dto.CreateMeetingRequest;
 import com.nexmeet.dto.CreateMeetingResponse;
 import com.nexmeet.dto.JoinMeetingResponse;
-import com.nexmeet.model.Meeting;
-import com.nexmeet.model.Participant;
-import com.nexmeet.model.ParticipantStatus;
-import com.nexmeet.model.User;
+import com.nexmeet.model.*;
 import com.nexmeet.repository.MeetingRepository;
 import com.nexmeet.repository.ParticipantRepository;
 import com.nexmeet.repository.UserRepository;
@@ -48,11 +45,7 @@ public class MeetingService {
         meeting.setStartTime(Instant.now());
         meetingRepository.save(meeting);
 
-        return new CreateMeetingResponse(meeting.getCode(), meeting.getTitle(), meeting.getStatus());
-    }
-
-    private Meeting getMeeting(String code) {
-        return meetingRepository.findByCode(code).orElseThrow(()-> new RuntimeException("Meeting not found"));
+        return new CreateMeetingResponse(meeting.getCode(), meeting.getTitle(), meeting.getStatus(), "Meeting created");
     }
 
     @Transactional
@@ -74,10 +67,12 @@ public class MeetingService {
         participant.setMeeting(meeting.get());
         participant.setStatus(ParticipantStatus.WAITING);
         participantRepository.save(participant);
+
+//        task: broadcast the update
+
         return new JoinMeetingResponse(meeting.get().getCode(), meeting.get().getStatus(), participant.getStatus(), participant.getId());
     }
 
-    @Transactional
     public AskToJoinMeetingResponse acceptMeeting(String code, String userEmail, String participantId) {
         Meeting meeting = getMeeting(code);
 
@@ -85,14 +80,16 @@ public class MeetingService {
             throw new ResponseStatusException(HttpStatusCode.valueOf(403),"You are not the host of the meeting");
         }
 
-        Participant participant = participantRepository.findById(UUID.fromString(participantId)).orElseThrow(()-> new ResponseStatusException(HttpStatusCode.valueOf(404),"Participant not found"));
+        Participant participant = getParticipant(UUID.fromString(participantId));
+        participant.setJoinedAt(Instant.now());
         participant.setStatus(ParticipantStatus.ACCEPTED);
         participantRepository.save(participant);
+
+//        task: broadcast the update
 
         return new AskToJoinMeetingResponse(code, participant.getStatus(), participant.getId());
     }
 
-    @Transactional
     public AskToJoinMeetingResponse rejectMeeting(String code, String userEmail, String participantId) {
         Meeting meeting = getMeeting(code);
         if (!meeting.getHost().getEmail().equals(userEmail)) {
@@ -103,4 +100,58 @@ public class MeetingService {
         participantRepository.save(participant);
         return new AskToJoinMeetingResponse(code, participant.getStatus(), participant.getId());
     }
+
+    @Transactional
+    public CreateMeetingResponse endMeeting(String code, String userEmail) {
+        Meeting meeting = getMeeting(code);
+        if (!meeting.getHost().getEmail().equals(userEmail)) {
+            throw new ResponseStatusException(HttpStatusCode.valueOf(403),"You are not the host of the meeting");
+        }
+
+        participantRepository.endMeeting(meeting.getId());
+        meeting.setStatus(MeetingStatus.ENDED);
+        meetingRepository.save(meeting);
+
+        //        task: broadcast the update
+
+        return new CreateMeetingResponse(meeting.getCode(), meeting.getTitle(), meeting.getStatus(), "Meeting ended");
+    }
+
+    @Transactional
+    public CreateMeetingResponse leaveMeeting(String code, UUID participantId) {
+
+        Meeting meeting = getMeeting(code);
+        Participant participant = getParticipant(participantId);
+        participant.setLeftAt(Instant.now());
+        participantRepository.save(participant);
+
+        //        task: broadcast the update
+
+        return new CreateMeetingResponse(meeting.getCode(), meeting.getTitle(), meeting.getStatus(), "Participant left the meeting");
+    }
+
+    @Transactional
+    public CreateMeetingResponse kickParticipant(String code, String userEmail, String participantId){
+        Meeting meeting = getMeeting(code);
+        if (!meeting.getHost().getEmail().equals(userEmail)) {
+            throw new ResponseStatusException(HttpStatusCode.valueOf(403),"You are not the host of the meeting");
+        }
+
+        Participant participant = getParticipant(UUID.fromString(participantId));
+        participant.setLeftAt(Instant.now());
+        participantRepository.save(participant);
+
+        //        task: broadcast the update
+
+        return new CreateMeetingResponse(meeting.getCode(), meeting.getTitle(), meeting.getStatus(), "Participant kicked from the meeting");
+    }
+
+    private Meeting getMeeting(String code) {
+        return meetingRepository.findByCode(code).orElseThrow(()-> new ResponseStatusException(HttpStatusCode.valueOf(404) ,"Meeting not found"));
+    }
+
+    private Participant getParticipant(UUID participantId) {
+        return participantRepository.findById(participantId).orElseThrow(()-> new ResponseStatusException(HttpStatusCode.valueOf(404),"Participant not found"));
+    }
+
 }
