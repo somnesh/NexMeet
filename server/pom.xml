@@ -30,6 +30,19 @@
 		<java.version>21</java.version>
 	</properties>
 	<dependencies>
+		<!-- Socket.IO client for Java -->
+		<dependency>
+			<groupId>io.socket</groupId>
+			<artifactId>socket.io-client</artifactId>
+			<version>2.0.1</version>
+		</dependency>
+
+		<!-- Required JSON library -->
+		<dependency>
+			<groupId>org.json</groupId>
+			<artifactId>json</artifactId>
+			<version>20240303</version>
+		</dependency>
 		<!-- WebSocket support for Spring -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
