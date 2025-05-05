@@ -36,6 +36,10 @@ public class Meeting {
         this.status = MeetingStatus.ACTIVE;
     }
 
+    @Column(name = "media_room_id")
+    private String mediaRoomId;
+
+
     @Column(nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
 
