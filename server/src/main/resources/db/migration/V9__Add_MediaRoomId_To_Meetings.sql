@@ -1,0 +1,1 @@
+ALTER TABLE meetings ADD COLUMN media_room_id VARCHAR(255);
