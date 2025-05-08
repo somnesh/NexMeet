@@ -18,6 +18,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
 import Header from "@/components/header";
 import axios from "axios";
+import { useNavigate } from "react-router-dom";
 
 export default function AuthPage() {
   // State for sign in form
@@ -44,6 +45,7 @@ export default function AuthPage() {
   // Add a state to track the active tab for additional animation control
   const [activeTab, setActiveTab] = useState("signin");
 
+  const navigate = useNavigate();
   const API_URL = import.meta.env.VITE_API_URL;
   const SERVER_URL = import.meta.env.VITE_SERVER_URL;
 
@@ -75,6 +77,12 @@ export default function AuthPage() {
       );
 
       console.log(response.data);
+        localStorage.setItem("avatar", response.data.avatar);
+        localStorage.setItem("id", response.data.id);
+        localStorage.setItem("name", response.data.name);
+      if (response.status === 200) {
+        navigate("/");
+      }
     } catch (error) {
       setSignInError("Incorrect email or password");
     } finally {
