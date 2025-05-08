@@ -74,9 +74,9 @@ export default function VideoCallInterface() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [layout, setLayout] = useState("grid"); // grid, spotlight, sidebar
-  const [showControls, setShowControls] = useState(true);
   const [isLeavingCall, setIsLeavingCall] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [showControls, setShowControls] = useState(true);
 
   // State for user media
   const [isMicMuted, setIsMicMuted] = useState(false);
@@ -133,7 +133,7 @@ export default function VideoCallInterface() {
       isCameraOff: false,
       isScreenSharing: true,
       isCurrentUser: false,
-      isPinned: true,
+      isPinned: false,
     },
     {
       id: 3,
@@ -270,27 +270,27 @@ export default function VideoCallInterface() {
   }, []);
 
   // Auto-hide controls after inactivity
-  useEffect(() => {
-    let timeout;
+  // useEffect(() => {
+  //   let timeout;
 
-    const handleMouseMove = () => {
-      setShowControls(true);
-      clearTimeout(timeout);
+  //   const handleMouseMove = () => {
+  //     setShowControls(true);
+  //     clearTimeout(timeout);
 
-      timeout = setTimeout(() => {
-        if (!isSettingsOpen) {
-          setShowControls(false);
-        }
-      }, 3000);
-    };
+  //     timeout = setTimeout(() => {
+  //       if (!isSettingsOpen) {
+  //         setShowControls(false);
+  //       }
+  //     }, 3000);
+  //   };
 
-    window.addEventListener("mousemove", handleMouseMove);
+  //   window.addEventListener("mousemove", handleMouseMove);
 
-    return () => {
-      window.removeEventListener("mousemove", handleMouseMove);
-      clearTimeout(timeout);
-    };
-  }, [isSettingsOpen]);
+  //   return () => {
+  //     window.removeEventListener("mousemove", handleMouseMove);
+  //     clearTimeout(timeout);
+  //   };
+  // }, [isSettingsOpen]);
 
   // Determine the main participant (pinned or screen sharing)
   const mainParticipant =
@@ -306,16 +306,22 @@ export default function VideoCallInterface() {
   return (
     <div
       ref={containerRef}
-      className="relative flex flex-col h-screen bg-black overflow-hidden"
+      className="relative flex flex-col h-screen dark:bg-black overflow-hidden"
     >
       {/* Main Video Area */}
-      <div className="flex-1 flex relative">
+      <div className="flex-1 flex relative min-h-0">
         {/* Video Grid */}
         <div
-          className={`flex-1 ${
+          className={`flex-1 min-h-0 ${
             layout === "spotlight"
               ? "grid grid-cols-1"
-              : "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+              : participants.length <= 2
+              ? "grid grid-cols-1 md:grid-cols-2"
+              : participants.length <= 4
+              ? "grid grid-cols-1 md:grid-cols-2"
+              : participants.length <= 6
+              ? "grid grid-cols-2 md:grid-cols-3"
+              : "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4"
           } gap-1 p-1 relative`}
         >
           {layout === "spotlight" ? (
@@ -373,20 +379,23 @@ export default function VideoCallInterface() {
               </div>
 
               {/* Thumbnail strip for other participants */}
-              <div className="absolute bottom-4 right-4 flex space-x-2">
+              <div className="absolute bottom-4 right-4 flex space-x-2 max-w-[80%] overflow-x-auto py-2 px-1">
                 {otherParticipants.map((participant) => (
                   <div
                     key={participant.id}
-                    className="relative w-32 h-24 bg-muted rounded-md overflow-hidden border-2 border-transparent hover:border-primary cursor-pointer transition-all"
+                    className="relative w-32 h-24 flex-shrink-0 bg-muted rounded-md overflow-hidden border-2 border-transparent hover:border-primary cursor-pointer transition-all"
                     onClick={() => togglePinParticipant(participant.id)}
                   >
                     {participant.isCameraOff ? (
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <Avatar className="h-10 w-10">
-                          <AvatarFallback>
+                      <div className="absolute inset-0 flex flex-col items-center justify-center">
+                        <Avatar className="h-16 w-16">
+                          <AvatarFallback className="text-xl">
                             {participant.initials}
                           </AvatarFallback>
                         </Avatar>
+                        <span className="text-white mt-2 text-center px-2 max-w-full truncate">
+                          {participant.name}
+                        </span>
                       </div>
                     ) : participant.isScreenSharing ? (
                       <div className="absolute inset-0 bg-gray-800 flex items-center justify-center">
@@ -416,18 +425,18 @@ export default function VideoCallInterface() {
             participants.map((participant) => (
               <div
                 key={participant.id}
-                className={`relative w-full ${
+                className={`relative ${
                   participant.isPinned ? "col-span-full row-span-2" : ""
                 } bg-muted rounded-md overflow-hidden`}
               >
                 {participant.isCameraOff ? (
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <Avatar className="h-16 w-16 mb-2">
+                  <div className="absolute inset-0 flex flex-col items-center justify-center">
+                    <Avatar className="h-16 w-16">
                       <AvatarFallback className="text-xl">
                         {participant.initials}
                       </AvatarFallback>
                     </Avatar>
-                    <span className="absolute bottom-10 text-white">
+                    <span className="text-white mt-2 text-center px-2 max-w-full truncate">
                       {participant.name}
                     </span>
                   </div>
@@ -442,7 +451,7 @@ export default function VideoCallInterface() {
                   </div>
                 ) : (
                   <video
-                    className="w-full h-full object-cover"
+                    className=" h-full object-cover"
                     autoPlay
                     muted={participant.isCurrentUser}
                     ref={participant.isCurrentUser ? localVideoRef : null}
@@ -476,8 +485,10 @@ export default function VideoCallInterface() {
         {/* Sidebar */}
         <div
           className={`h-full bg-background border-l transition-all duration-300 ${
-            isSidebarOpen ? "w-80" : "w-0 opacity-0 pointer-events-none"
-          }`}
+            isSidebarOpen
+              ? "w-full sm:w-80"
+              : "w-0 opacity-0 pointer-events-none"
+          } absolute sm:relative right-0 z-10`}
         >
           <div className="flex flex-col h-full">
             <div className="flex items-center justify-between p-3 border-b">
@@ -698,12 +709,12 @@ export default function VideoCallInterface() {
 
       {/* Control Bar */}
       <div
-        className={`relative transition-opacity duration-300 ${
+        className={`transition-opacity duration-300 ${
           showControls ? "opacity-100" : "opacity-0 pointer-events-none"
-        }`}
+        } z-20`}
       >
-        <div className="absolute bottom-0 left-0 right-0 flex justify-center pb-4">
-          <div className="bg-background/90 backdrop-blur-sm rounded-full px-2 py-2 shadow-lg border flex items-center space-x-1">
+        <div className="flex justify-center pb-4">
+          <div className="bg-background/90 backdrop-blur-sm rounded-full px-2 py-2 shadow-lg flex items-center space-x-1">
             {/* Audio Controls */}
             <TooltipProvider>
               <Tooltip>
