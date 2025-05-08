@@ -35,7 +35,6 @@ import {
 import useTheme from "../contexts/theme";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Link, useNavigate } from "react-router-dom";
-import axios from "axios";
 import { useEffect, useState } from "react";
 import { Textarea } from "./ui/textarea";
 import { Button } from "./ui/button";
@@ -70,11 +69,9 @@ export function ProfileMenu({ setPageLoading }) {
     try {
       //   setPageLoading(true);
       await API.post(`/auth/logout`);
-      //   localStorage.removeItem("avatar");
-      //   localStorage.removeItem("avatarBg");
-      //   localStorage.removeItem("id");
-      //   localStorage.removeItem("name");
-      //   localStorage.removeItem("username");
+        localStorage.removeItem("avatar");
+        localStorage.removeItem("id");
+        localStorage.removeItem("name");
       navigate("/login");
       //   setPageLoading(false);
     } catch (error) {
