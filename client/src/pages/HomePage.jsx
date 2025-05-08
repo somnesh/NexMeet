@@ -29,6 +29,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Header from "@/components/header";
 import API from "../api/api";
 import {WholePageLoader} from "../components/loaders/WholePageLoader.jsx";
+import { useNavigate } from "react-router-dom";
 
 export default function HomePage() {
   const [meetingCode, setMeetingCode] = useState("");
@@ -37,10 +38,18 @@ export default function HomePage() {
   const [codeError, setCodeError] = useState("");
   const [loading, setLoading] = useState(true);
 
+  const navigate = useNavigate();
+
   const validateToken = async  () => {
     try {
       setLoading(true);
-      await API.get("/auth/validate-token");
+      const res = await API.get("/auth/validate-token");
+      console.log(res);
+      if (res.status === 200) {
+        console.log("Token is valid");
+      } else {
+        console.log("Token is invalid");
+      }
     } catch (error) {
       console.log(error);
     }
@@ -52,30 +61,44 @@ export default function HomePage() {
   }, []);
 
   // Handle joining a meeting
-  const handleJoinMeeting = (e) => {
+  const handleJoinMeeting = async (e) => {
     e.preventDefault();
     setCodeError("");
+    let formattedCode;
 
     if (!meetingCode.trim()) {
       setCodeError("Please enter a meeting code");
       return;
     }
 
-    // Validate meeting code format (example: expecting a 9-digit code)
-    const codeRegex = /^\d{3}-\d{3}-\d{3}$|^\d{9}$/;
+    // Validate meeting code format
+    const codeRegex = /^([a-zA-Z]{10}|[a-zA-Z]{3}-[a-zA-Z]{4}-[a-zA-Z]{3})$/;
     if (!codeRegex.test(meetingCode.trim())) {
-      setCodeError("Invalid meeting code format. Use 123-456-789 or 123456789");
+      setCodeError("Invalid meeting code format. Use abc-defg-hij or abcdefghij");
       return;
+    }
+
+    if(meetingCode.length === 10){
+      const cleanedCode = meetingCode.trim();
+      formattedCode = `${cleanedCode.slice(0, 3)}-${cleanedCode.slice(3, 7)}-${cleanedCode.slice(7, 10)}`;
+    } else{
+      formattedCode = meetingCode;
     }
 
     setIsJoining(true);
 
-    // Simulate joining a meeting
-    setTimeout(() => {
-      console.log("Joining meeting with code:", meetingCode);
-      setIsJoining(false);
-      // Here you would redirect to the meeting room
-    }, 1500);
+    try{
+      const res = await API.post(`meeting/${formattedCode}`);
+      console.log(res);
+      if(res.status === 200) {
+        navigate("/join");
+      }
+
+    }catch (error){
+      console.error(error);
+    }
+
+    setIsJoining(false);
   };
 
   // Handle creating a new meeting
@@ -186,7 +209,7 @@ export default function HomePage() {
                     <div className="flex-1">
                       <Input
                         type="text"
-                        placeholder="Enter meeting code (e.g., 123-456-789)"
+                        placeholder="Enter meeting code (e.g., abc-mnop-xyz or abcmnopxyz)"
                         value={meetingCode}
                         onChange={(e) => setMeetingCode(e.target.value)}
                         className={`h-12 text-base ${
