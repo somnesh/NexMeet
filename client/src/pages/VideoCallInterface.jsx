@@ -26,6 +26,8 @@ import {
   Layout,
   UserPlus,
   MoreHorizontal,
+  Disc2,
+  CircleStop,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -69,7 +71,7 @@ import { VideoOffIcon as RecordOff } from "lucide-react";
 
 export default function VideoCallInterface() {
   // State for UI controls
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [sidebarTab, setSidebarTab] = useState("chat");
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
@@ -120,7 +122,7 @@ export default function VideoCallInterface() {
       name: "You",
       initials: "YO",
       isMuted: false,
-      isCameraOff: false,
+      isCameraOff: true,
       isScreenSharing: false,
       isCurrentUser: true,
       isPinned: false,
@@ -130,8 +132,8 @@ export default function VideoCallInterface() {
       name: "Alex Thompson",
       initials: "AT",
       isMuted: false,
-      isCameraOff: false,
-      isScreenSharing: true,
+      isCameraOff: true,
+      isScreenSharing: false,
       isCurrentUser: false,
       isPinned: false,
     },
@@ -140,7 +142,7 @@ export default function VideoCallInterface() {
       name: "Blake Rivera",
       initials: "BR",
       isMuted: true,
-      isCameraOff: false,
+      isCameraOff: true,
       isScreenSharing: false,
       isCurrentUser: false,
       isPinned: false,
@@ -310,178 +312,317 @@ export default function VideoCallInterface() {
     >
       {/* Main Video Area */}
       <div className="flex-1 flex relative min-h-0">
-        {/* Video Grid */}
-        <div
-          className={`flex-1 min-h-0 ${
-            layout === "spotlight"
-              ? "grid grid-cols-1"
-              : participants.length <= 2
-              ? "grid grid-cols-1 md:grid-cols-2"
-              : participants.length <= 4
-              ? "grid grid-cols-1 md:grid-cols-2"
-              : participants.length <= 6
-              ? "grid grid-cols-2 md:grid-cols-3"
-              : "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4"
-          } gap-1 p-1 relative`}
-        >
-          {layout === "spotlight" ? (
-            // Spotlight layout with one main video
-            <div className="relative w-full h-full">
-              <div className="absolute inset-0 flex items-center justify-center bg-muted">
-                {mainParticipant.isCameraOff ? (
-                  <div className="flex flex-col items-center justify-center">
-                    <Avatar className="h-24 w-24 mb-2">
-                      <AvatarFallback className="text-2xl">
-                        {mainParticipant.initials}
-                      </AvatarFallback>
-                    </Avatar>
-                    <span className="text-white">{mainParticipant.name}</span>
-                  </div>
-                ) : mainParticipant.isScreenSharing ? (
-                  <div className="absolute inset-0 bg-gray-800 flex items-center justify-center">
-                    <div className="text-center">
-                      <ScreenShare className="h-12 w-12 mx-auto mb-2 text-white/70" />
-                      <p className="text-white">
-                        {mainParticipant.name} is sharing their screen
-                      </p>
+        {/* Video Grid with Pinned Layout Support */}
+        {participants.some((p) => p.isPinned) ? (
+          // Pinned layout - 70/30 split
+          <div className="flex w-full h-full overflow-hidden">
+            {/* Pinned participant - 70% width */}
+            <div className="w-[70%] h-full p-1">
+              {mainParticipant && (
+                <div className="relative w-full h-full bg-muted rounded-md overflow-hidden">
+                  {mainParticipant.isCameraOff ? (
+                    <div className="flex flex-col items-center justify-center h-full">
+                      <Avatar className="h-24 w-24 mb-2">
+                        <AvatarFallback className="text-2xl">
+                          {mainParticipant.initials}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span className="text-white">{mainParticipant.name}</span>
+                      {mainParticipant.isPinned && (
+                        <Badge className="mt-2 bg-primary/60">Pinned</Badge>
+                      )}
                     </div>
-                  </div>
-                ) : (
-                  <video
-                    className="w-full h-full object-cover"
-                    autoPlay
-                    muted={mainParticipant.isCurrentUser}
-                    ref={mainParticipant.isCurrentUser ? localVideoRef : null}
-                  />
-                )}
-
-                {/* Participant info overlay */}
-                <div className="absolute bottom-2 left-2 flex items-center space-x-2 bg-black/50 rounded-md px-2 py-1">
-                  <span className="text-white text-sm">
-                    {mainParticipant.name}
-                  </span>
-                  {mainParticipant.isMuted && (
-                    <MicOff className="h-4 w-4 text-red-500" />
-                  )}
-                </div>
-
-                {/* Pin/Unpin button */}
-                <button
-                  className="absolute top-2 right-2 bg-black/50 p-1.5 rounded-md hover:bg-black/70 transition-colors"
-                  onClick={() => togglePinParticipant(mainParticipant.id)}
-                >
-                  {mainParticipant.isPinned ? (
-                    <PinOff className="h-5 w-5 text-white" />
+                  ) : mainParticipant.isScreenSharing ? (
+                    <div className="absolute inset-0 bg-gray-800 flex items-center justify-center">
+                      <div className="text-center">
+                        <ScreenShare className="h-12 w-12 mx-auto mb-2 text-white/70" />
+                        <p className="text-white">
+                          {mainParticipant.name} is sharing their screen
+                        </p>
+                        {mainParticipant.isPinned && (
+                          <Badge className="mt-2 bg-primary/60">Pinned</Badge>
+                        )}
+                      </div>
+                    </div>
                   ) : (
-                    <Pin className="h-5 w-5 text-white" />
+                    <>
+                      <video
+                        className="w-full h-full object-cover"
+                        autoPlay
+                        muted={mainParticipant.isCurrentUser}
+                        ref={
+                          mainParticipant.isCurrentUser ? localVideoRef : null
+                        }
+                      />
+                      <div className="absolute bottom-2 left-2 text-white bg-black/50 px-2 py-1 rounded flex items-center gap-2">
+                        {mainParticipant.name}
+                        {mainParticipant.isPinned && (
+                          <Badge className="bg-primary/60">Pinned</Badge>
+                        )}
+                        {mainParticipant.isMuted && (
+                          <MicOff className="h-4 w-4" />
+                        )}
+                      </div>
+                    </>
                   )}
-                </button>
-              </div>
+                  {/* Pin/Unpin button */}
+                  <button
+                    className="absolute top-2 right-2 bg-black/50 p-1.5 rounded-md hover:bg-black/70 transition-colors"
+                    onClick={() => togglePinParticipant(mainParticipant)}
+                  >
+                    {mainParticipant.isPinned ? (
+                      <PinOff className="h-5 w-5 text-white" />
+                    ) : (
+                      <Pin className="h-5 w-5 text-white" />
+                    )}
+                  </button>
+                </div>
+              )}
+            </div>
 
-              {/* Thumbnail strip for other participants */}
-              <div className="absolute bottom-4 right-4 flex space-x-2 max-w-[80%] overflow-x-auto py-2 px-1">
-                {otherParticipants.map((participant) => (
+            {/* Other participants - 30% width, vertical stack */}
+            <div className="w-[30%] h-full p-1 flex flex-col">
+              {/* Display up to 4 other participants */}
+              <div className="flex-1 grid grid-cols-1 gap-1 overflow-hidden">
+                {otherParticipants.slice(0, 4).map((participant) => (
                   <div
                     key={participant.id}
-                    className="relative w-32 h-24 flex-shrink-0 bg-muted rounded-md overflow-hidden border-2 border-transparent hover:border-primary cursor-pointer transition-all"
-                    onClick={() => togglePinParticipant(participant.id)}
+                    className="relative bg-muted rounded-md overflow-hidden"
                   >
                     {participant.isCameraOff ? (
-                      <div className="absolute inset-0 flex flex-col items-center justify-center">
-                        <Avatar className="h-16 w-16">
-                          <AvatarFallback className="text-xl">
+                      <div className="flex flex-col items-center justify-center h-full">
+                        <Avatar className="h-12 w-12 mb-1">
+                          <AvatarFallback className="text-lg">
                             {participant.initials}
                           </AvatarFallback>
                         </Avatar>
-                        <span className="text-white mt-2 text-center px-2 max-w-full truncate">
+                        <span className="text-white text-sm">
                           {participant.name}
                         </span>
                       </div>
                     ) : participant.isScreenSharing ? (
-                      <div className="absolute inset-0 bg-gray-800 flex items-center justify-center">
-                        <ScreenShare className="h-6 w-6 text-white/70" />
+                      <div className="h-full flex items-center justify-center bg-gray-800">
+                        <div className="text-center">
+                          <ScreenShare className="h-8 w-8 mx-auto mb-1 text-white/70" />
+                          <p className="text-white text-sm">Screen sharing</p>
+                        </div>
                       </div>
                     ) : (
-                      <div className="w-full h-full bg-gray-800 flex items-center justify-center">
-                        <span className="text-white text-xs">Video</span>
-                      </div>
+                      <>
+                        <video
+                          className="w-full h-full object-cover"
+                          autoPlay
+                          muted={participant.isCurrentUser}
+                          ref={participant.isCurrentUser ? localVideoRef : null}
+                        />
+                        <div className="absolute bottom-1 left-1 text-white bg-black/50 px-1 py-0.5 rounded text-sm flex items-center gap-1">
+                          {participant.name}
+                          {participant.isMuted && (
+                            <MicOff className="h-3 w-3" />
+                          )}
+                        </div>
+                      </>
                     )}
 
-                    {/* Participant info overlay */}
-                    <div className="absolute bottom-1 left-1 right-1 flex items-center justify-between bg-black/50 rounded-sm px-1 py-0.5">
-                      <span className="text-white text-xs truncate">
-                        {participant.name}
-                      </span>
-                      {participant.isMuted && (
-                        <MicOff className="h-3 w-3 text-red-500 flex-shrink-0" />
-                      )}
-                    </div>
+                    {/* Pin/Unpin button for each participant */}
+                    <button
+                      onClick={() => togglePinParticipant(participant.id)}
+                      className="absolute top-1 right-1 p-1 bg-black/50 rounded-full text-white/80 hover:text-white hover:bg-black/70"
+                      title={`${
+                        participant.isPinned ? "Unpin" : "Pin"
+                      } participant`}
+                    >
+                      <Pin className="h-4 w-4" />
+                    </button>
                   </div>
                 ))}
-              </div>
-            </div>
-          ) : (
-            // Grid layout with all participants
-            participants.map((participant) => (
-              <div
-                key={participant.id}
-                className={`relative ${
-                  participant.isPinned ? "col-span-full row-span-2" : ""
-                } bg-muted rounded-md overflow-hidden`}
-              >
-                {participant.isCameraOff ? (
-                  <div className="absolute inset-0 flex flex-col items-center justify-center">
-                    <Avatar className="h-16 w-16">
-                      <AvatarFallback className="text-xl">
-                        {participant.initials}
-                      </AvatarFallback>
-                    </Avatar>
-                    <span className="text-white mt-2 text-center px-2 max-w-full truncate">
-                      {participant.name}
-                    </span>
-                  </div>
-                ) : participant.isScreenSharing ? (
-                  <div className="absolute inset-0 bg-gray-800 flex items-center justify-center">
-                    <div className="text-center">
-                      <ScreenShare className="h-8 w-8 mx-auto mb-2 text-white/70" />
-                      <p className="text-white text-sm">
-                        {participant.name} is sharing their screen
-                      </p>
+
+                {/* Show indicator if there are more than 4 other participants */}
+                {otherParticipants.length > 4 && (
+                  <div className="flex items-center justify-center bg-black/30 rounded-md text-white p-2">
+                    <div className="flex items-center gap-2">
+                      <Users className="h-5 w-5" />
+                      <span>+{otherParticipants.length - 4} more</span>
                     </div>
                   </div>
-                ) : (
-                  <video
-                    className=" h-full object-cover"
-                    autoPlay
-                    muted={participant.isCurrentUser}
-                    ref={participant.isCurrentUser ? localVideoRef : null}
-                  />
                 )}
-
-                {/* Participant info overlay */}
-                <div className="absolute bottom-2 left-2 flex items-center space-x-2 bg-black/50 rounded-md px-2 py-1">
-                  <span className="text-white text-sm">{participant.name}</span>
-                  {participant.isMuted && (
-                    <MicOff className="h-4 w-4 text-red-500" />
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div
+            className={`flex-1 min-h-0 ${
+              layout === "spotlight"
+                ? "grid grid-cols-1"
+                : participants.length <= 2
+                ? "grid grid-cols-1 md:grid-cols-2"
+                : participants.length <= 4
+                ? "grid grid-cols-1 md:grid-cols-2"
+                : participants.length <= 6
+                ? "grid grid-cols-2 md:grid-cols-3"
+                : "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4"
+            } gap-1 p-1 relative`}
+          >
+            {layout === "spotlight" ? (
+              // Spotlight layout with one main video
+              <div className="relative w-full h-full">
+                <div className="absolute inset-0 flex items-center justify-center bg-muted">
+                  {mainParticipant.isCameraOff ? (
+                    <div className="flex flex-col items-center justify-center">
+                      <Avatar className="h-24 w-24 mb-2">
+                        <AvatarFallback className="text-2xl">
+                          {mainParticipant.initials}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span className="text-white">{mainParticipant.name}</span>
+                    </div>
+                  ) : mainParticipant.isScreenSharing ? (
+                    <div className="absolute inset-0 bg-gray-800 flex items-center justify-center">
+                      <div className="text-center">
+                        <ScreenShare className="h-12 w-12 mx-auto mb-2 text-white/70" />
+                        <p className="text-white">
+                          {mainParticipant.name} is sharing their screen
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <video
+                      className="w-full h-full object-cover"
+                      autoPlay
+                      muted={mainParticipant.isCurrentUser}
+                      ref={mainParticipant.isCurrentUser ? localVideoRef : null}
+                    />
                   )}
+
+                  {/* Participant info overlay */}
+                  <div className="absolute bottom-2 left-2 flex items-center space-x-2 bg-black/50 rounded-md px-2 py-1">
+                    <span className="text-white text-sm">
+                      {mainParticipant.name}
+                    </span>
+                    {mainParticipant.isMuted && (
+                      <MicOff className="h-4 w-4 text-red-500" />
+                    )}
+                  </div>
+
+                  {/* Pin/Unpin button */}
+                  <button
+                    className="absolute top-2 right-2 bg-black/50 p-1.5 rounded-md hover:bg-black/70 transition-colors"
+                    onClick={() => togglePinParticipant(mainParticipant.id)}
+                  >
+                    {mainParticipant.isPinned ? (
+                      <PinOff className="h-5 w-5 text-white" />
+                    ) : (
+                      <Pin className="h-5 w-5 text-white" />
+                    )}
+                  </button>
                 </div>
 
-                {/* Pin/Unpin button */}
-                <button
-                  className="absolute top-2 right-2 bg-black/50 p-1.5 rounded-md hover:bg-black/70 transition-colors"
-                  onClick={() => togglePinParticipant(participant.id)}
-                >
-                  {participant.isPinned ? (
-                    <PinOff className="h-5 w-5 text-white" />
-                  ) : (
-                    <Pin className="h-5 w-5 text-white" />
-                  )}
-                </button>
-              </div>
-            ))
-          )}
-        </div>
+                {/* Thumbnail strip for other participants */}
+                <div className="absolute bottom-4 right-4 flex space-x-2 max-w-[80%] overflow-x-auto py-2 px-1">
+                  {otherParticipants.map((participant) => (
+                    <div
+                      key={participant.id}
+                      className="relative w-32 h-24 flex-shrink-0 bg-muted rounded-md overflow-hidden border-2 border-transparent hover:border-primary cursor-pointer transition-all"
+                      onClick={() => togglePinParticipant(participant.id)}
+                    >
+                      {participant.isCameraOff ? (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center">
+                          <Avatar className="h-16 w-16">
+                            <AvatarFallback className="text-xl">
+                              {participant.initials}
+                            </AvatarFallback>
+                          </Avatar>
+                          <span className="text-white mt-2 text-center px-2 max-w-full truncate">
+                            {participant.name}
+                          </span>
+                        </div>
+                      ) : participant.isScreenSharing ? (
+                        <div className="absolute inset-0 bg-gray-800 flex items-center justify-center">
+                          <ScreenShare className="h-6 w-6 text-white/70" />
+                        </div>
+                      ) : (
+                        <div className="w-full h-full bg-gray-800 flex items-center justify-center">
+                          <span className="text-white text-xs">Video</span>
+                        </div>
+                      )}
 
+                      {/* Participant info overlay */}
+                      <div className="absolute bottom-1 left-1 right-1 flex items-center justify-between bg-black/50 rounded-sm px-1 py-0.5">
+                        <span className="text-white text-xs truncate">
+                          {participant.name}
+                        </span>
+                        {participant.isMuted && (
+                          <MicOff className="h-3 w-3 text-red-500 flex-shrink-0" />
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              // Grid layout with all participants
+              participants.map((participant) => (
+                <div
+                  key={participant.id}
+                  className={`relative ${
+                    participant.isPinned ? "col-span-full row-span-2" : ""
+                  } bg-muted rounded-md overflow-hidden`}
+                >
+                  {participant.isCameraOff ? (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center">
+                      <Avatar className="h-16 w-16">
+                        <AvatarFallback className="text-xl">
+                          {participant.initials}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span className="text-white mt-2 text-center px-2 max-w-full truncate">
+                        {participant.name}
+                      </span>
+                    </div>
+                  ) : participant.isScreenSharing ? (
+                    <div className="absolute inset-0 bg-gray-800 flex items-center justify-center">
+                      <div className="text-center">
+                        <ScreenShare className="h-8 w-8 mx-auto mb-2 text-white/70" />
+                        <p className="text-white text-sm">
+                          {participant.name} is sharing their screen
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <video
+                      className=" h-full object-cover"
+                      autoPlay
+                      muted={participant.isCurrentUser}
+                      ref={participant.isCurrentUser ? localVideoRef : null}
+                    />
+                  )}
+
+                  {/* Participant info overlay */}
+                  <div className="absolute bottom-2 left-2 flex items-center space-x-2 bg-black/50 rounded-md px-2 py-1">
+                    <span className="text-white text-sm">
+                      {participant.name}
+                    </span>
+                    {participant.isMuted && (
+                      <MicOff className="h-4 w-4 text-red-500" />
+                    )}
+                  </div>
+
+                  {/* Pin/Unpin button */}
+                  <button
+                    className="absolute top-2 right-2 bg-black/50 p-1.5 rounded-md hover:bg-black/70 transition-colors"
+                    onClick={() => togglePinParticipant(participant.id)}
+                  >
+                    {participant.isPinned ? (
+                      <PinOff className="h-5 w-5 text-white" />
+                    ) : (
+                      <Pin className="h-5 w-5 text-white" />
+                    )}
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
+        )}
         {/* Sidebar */}
         <div
           className={`h-full bg-background border-l transition-all duration-300 ${
@@ -714,7 +855,7 @@ export default function VideoCallInterface() {
         } z-20`}
       >
         <div className="flex justify-center pb-4">
-          <div className="bg-background/90 backdrop-blur-sm rounded-full px-2 py-2 shadow-lg flex items-center space-x-1">
+          <div className="bg-background/90 backdrop-blur-sm rounded-full px-2 py-2 shadow-lg flex items-center space-x-1 gap-3">
             {/* Audio Controls */}
             <TooltipProvider>
               <Tooltip>
@@ -832,9 +973,9 @@ export default function VideoCallInterface() {
                     onClick={() => setIsRecording(!isRecording)}
                   >
                     {isRecording ? (
-                      <RecordOff className="h-5 w-5 text-red-500" />
+                      <CircleStop className="h-5 w-5 text-red-500" />
                     ) : (
-                      <Record className="h-5 w-5" />
+                      <Disc2 className="h-5 w-5" />
                     )}
                   </Button>
                 </TooltipTrigger>
@@ -1120,7 +1261,7 @@ export default function VideoCallInterface() {
       {/* Recording Indicator */}
       {isRecording && (
         <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-red-500 text-white px-4 py-1 rounded-full flex items-center space-x-2 animate-pulse">
-          <Record className="h-4 w-4" />
+          <Disc2 className="h-4 w-4" />
           <span className="text-sm font-medium">Recording</span>
         </div>
       )}
