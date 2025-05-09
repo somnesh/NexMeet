@@ -52,6 +52,7 @@ export default function HomePage() {
       }
     } catch (error) {
       console.log(error);
+      navigate("/login");
     }
     setLoading(false);
   };
