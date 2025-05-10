@@ -632,11 +632,11 @@ export default function VideoCallInterface() {
           } absolute sm:relative right-0 z-10`}
         >
           <div className="flex flex-col h-full">
-            <div className="flex items-center justify-between p-3 border-b">
+            <div className="flex items-center h-full p-3 border-b">
               <Tabs
                 value={sidebarTab}
                 onValueChange={setSidebarTab}
-                className="w-full"
+                className="w-full h-full overflow-y-auto"
               >
                 <TabsList className="w-full">
                   <TabsTrigger value="chat" className="flex-1">
@@ -709,7 +709,10 @@ export default function VideoCallInterface() {
                     ))}
                   </div>
 
-                  <form onSubmit={handleSendMessage} className="p-3 border-t">
+                  <form
+                    onSubmit={handleSendMessage}
+                    className="p-3 border-t sticky bottom-0 bg-black"
+                  >
                     <div className="flex items-center space-x-2">
                       <Input
                         type="text"
