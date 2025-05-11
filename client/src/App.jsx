@@ -6,6 +6,8 @@ import VideoCallInterface from "./pages/VideoCallInterface";
 import { Toaster } from "./components/ui/sonner";
 import { ThemeProvider } from "./contexts/Theme";
 import PreJoinPage from "./pages/PreJoinPage";
+import MeetingPage from "./pages/MeetingPage";
+import MeetingNotFound from "./pages/errors/MeetingNotFound";
 
 const router = createBrowserRouter([
   {
@@ -23,6 +25,14 @@ const router = createBrowserRouter([
   {
     path: "/join",
     element: <PreJoinPage />,
+  },
+  {
+    path: "/:meetingCode",
+    element: <MeetingPage />,
+  },
+  {
+    path: "/404",
+    element: <MeetingNotFound />,
   },
 ]);
 
