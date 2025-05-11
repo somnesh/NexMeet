@@ -77,9 +77,10 @@ export default function AuthPage() {
       );
 
       console.log(response.data);
-        localStorage.setItem("avatar", response.data.avatar);
-        localStorage.setItem("id", response.data.id);
-        localStorage.setItem("name", response.data.name);
+      localStorage.setItem("avatar", response.data.avatar);
+      localStorage.setItem("id", response.data.id);
+      localStorage.setItem("name", response.data.name);
+      localStorage.setItem("email", response.data.email);
       if (response.status === 200) {
         navigate("/");
       }
