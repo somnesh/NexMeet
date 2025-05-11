@@ -65,7 +65,7 @@ public class AuthService {
         // Set Refresh Token as HttpOnly Cookie
         setCookie(response, "refreshToken", refreshToken, 7 * 24 * 60 * 60); // 7 days expiry
 
-        return new AuthResponse(user.getName(), user.getId().toString(), user.getAvatar(), accessToken, refreshToken,"User registered successfully");
+        return new AuthResponse(user.getName(), user.getId().toString(),user.getEmail(), user.getAvatar(), accessToken, refreshToken,"User registered successfully");
     }
 
     public AuthResponse login(LoginRequest request, HttpServletResponse response) throws CredentialException {
@@ -94,7 +94,7 @@ public class AuthService {
         // Set Refresh Token as HttpOnly Cookie
         setCookie(response, "refreshToken", refreshToken, 7 * 24 * 60 * 60); // 7 days expiry
 
-        return new AuthResponse(user.getName(), user.getId().toString(), user.getAvatar(), accessToken, refreshToken, "Login successful");
+        return new AuthResponse(user.getName(), user.getId().toString(), user.getEmail(), user.getAvatar(), accessToken, refreshToken, "Login successful");
     }
 
     public AuthResponse getAccessToken(String token, HttpServletResponse response) throws CredentialException {
@@ -131,7 +131,7 @@ public class AuthService {
         // Set Refresh Token as HttpOnly Cookie
         setCookie(response, "refreshToken", refreshToken, 7 * 24 * 60 * 60); // 7 days expiry
 
-        return new AuthResponse(user.getName(), user.getId().toString(), user.getAvatar(), accessToken, refreshToken, "Token refreshed");
+        return new AuthResponse(user.getName(), user.getId().toString(), user.getEmail(), user.getAvatar(), accessToken, refreshToken, "Token refreshed");
     }
 
     private void setCookie(HttpServletResponse response, String name, String value, int maxAge) {
