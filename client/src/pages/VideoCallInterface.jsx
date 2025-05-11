@@ -1,5 +1,3 @@
-"use client";
-
 import { useState, useEffect, useRef } from "react";
 import {
   Mic,
@@ -69,7 +67,7 @@ import {
 } from "@/components/ui/select";
 import { VideoOffIcon as RecordOff } from "lucide-react";
 
-export default function VideoCallInterface() {
+export default function VideoCallInterface({ meetingCode }) {
   // State for UI controls
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [sidebarTab, setSidebarTab] = useState("chat");
@@ -122,7 +120,7 @@ export default function VideoCallInterface() {
       name: "You",
       initials: "YO",
       isMuted: false,
-      isCameraOff: true,
+      isCameraOff: false,
       isScreenSharing: false,
       isCurrentUser: true,
       isPinned: false,
