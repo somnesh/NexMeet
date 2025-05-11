@@ -69,9 +69,10 @@ export function ProfileMenu({ setPageLoading }) {
     try {
       //   setPageLoading(true);
       await API.post(`/auth/logout`);
-        localStorage.removeItem("avatar");
-        localStorage.removeItem("id");
-        localStorage.removeItem("name");
+      localStorage.removeItem("avatar");
+      localStorage.removeItem("id");
+      localStorage.removeItem("name");
+      localStorage.removeItem("email");
       navigate("/login");
       //   setPageLoading(false);
     } catch (error) {
