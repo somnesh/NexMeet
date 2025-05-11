@@ -81,7 +81,7 @@ public class OAuth2Controller {
         addCookie(response, "refreshToken", refreshToken, 7 * 24 * 60 * 60);
 
         response.sendRedirect("http://localhost:5173");
-        return ResponseEntity.ok(new AuthResponse(user.getName(), user.getId().toString(), user.getAvatar(), accessToken, refreshToken, "Google login success!"));
+        return ResponseEntity.ok(new AuthResponse(user.getName(), user.getId().toString(), user.getEmail(), user.getAvatar(), accessToken, refreshToken, "Google login success!"));
     }
 
     private void addCookie(HttpServletResponse response, String name, String value, int expiry) {
