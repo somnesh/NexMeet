@@ -45,6 +45,15 @@ public class MeetingController {
         return meetingService.createMeeting(request, userEmail);
     }
 
+    @GetMapping("/{code}")
+    public GetMeetingResponse getMeeting(@CookieValue(value = "accessToken", required = false) String accessToken, @PathVariable String code) {
+        if (accessToken == null) {
+            throw new ResponseStatusException(HttpStatusCode.valueOf(401), "Unauthorized");
+        }
+        String userEmail = JwtUtil.extractEmail(accessToken);
+        return meetingService.getMeetingByCode(code, userEmail);
+    }
+
     @PostMapping("/{code}")
     public JoinMeetingResponse askToJoinMeeting(@PathVariable String code, @CookieValue(value = "accessToken", required = false) String accessToken) {
         if (accessToken == null) {
