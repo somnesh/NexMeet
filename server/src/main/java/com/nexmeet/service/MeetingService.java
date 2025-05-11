@@ -1,9 +1,6 @@
 package com.nexmeet.service;
 
-import com.nexmeet.dto.AskToJoinMeetingResponse;
-import com.nexmeet.dto.CreateMeetingRequest;
-import com.nexmeet.dto.CreateMeetingResponse;
-import com.nexmeet.dto.JoinMeetingResponse;
+import com.nexmeet.dto.*;
 import com.nexmeet.model.*;
 import com.nexmeet.repository.MeetingRepository;
 import com.nexmeet.repository.ParticipantRepository;
@@ -40,6 +37,20 @@ public class MeetingService {
         this.participantRepository = participantRepository;
         this.mediaSoupService = mediaSoupService;
         this.messagingTemplate = messagingTemplate;
+    }
+
+    public Map<String, Meeting> getAllMeetings() {
+        Map<String, Meeting> meetings = new HashMap<>();
+        meetingRepository.findAll().forEach(meeting -> meetings.put(meeting.getCode(), meeting));
+        return meetings;
+    }
+
+    public GetMeetingResponse getMeetingByCode(String code, String userEmail) {
+        Meeting meeting = meetingRepository.findByCode(code)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatusCode.valueOf(404), "Meeting not found"));
+
+        boolean isHost = meeting.getHost().getEmail().equals(userEmail);
+        return new GetMeetingResponse(meeting.getCode(), meeting.getTitle(), meeting.getStatus(), meeting.getMediaRoomId(), isHost);
     }
 
     @Transactional
