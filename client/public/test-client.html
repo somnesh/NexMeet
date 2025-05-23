@@ -1,0 +1,1288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NexMeet Test Client</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            padding: 20px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .card {
+            margin-bottom: 20px;
+        }
+        .video-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 10px;
+            margin-top: 20px;
+        }
+        .video-wrapper {
+            position: relative;
+            background-color: #000;
+            border-radius: 8px;
+            overflow: hidden;
+            aspect-ratio: 16/9;
+        }
+        video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .user-label {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            background-color: rgba(0, 0, 0, 0.5);
+            color: white;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+        .controls {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin: 10px 0;
+        }
+        #logContainer {
+            height: 300px;
+            overflow-y: auto;
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            border: 1px solid #dee2e6;
+            font-family: monospace;
+        }
+        .log-entry {
+            margin-bottom: 5px;
+            border-bottom: 1px solid #e9ecef;
+            padding-bottom: 5px;
+        }
+        .log-time {
+            color: #6c757d;
+            margin-right: 10px;
+        }
+        .log-info { color: #0d6efd; }
+        .log-success { color: #198754; }
+        .log-warning { color: #ffc107; }
+        .log-error { color: #dc3545; }
+        .participant-list {
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .join-request {
+            animation: blink 2s infinite;
+        }
+        @keyframes blink {
+            0% { background-color: transparent; }
+            50% { background-color: rgba(255, 193, 7, 0.2); }
+            100% { background-color: transparent; }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1 class="mb-4">NexMeet Test Client</h1>
+
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">Login / Register</div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label for="emailInput" class="form-label">Email</label>
+                        <input type="email" class="form-control" id="emailInput" placeholder="email@example.com">
+                    </div>
+                    <div class="mb-3">
+                        <label for="passwordInput" class="form-label">Password</label>
+                        <input type="password" class="form-control" id="passwordInput">
+                    </div>
+                    <div class="mb-3">
+                        <label for="nameInput" class="form-label">Name (for registration)</label>
+                        <input type="text" class="form-control" id="nameInput">
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-primary" id="loginBtn">Login</button>
+                        <button class="btn btn-secondary" id="registerBtn">Register</button>
+                        <button class="btn btn-danger" id="logoutBtn">Logout</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">Create Meeting</div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label for="meetingTitleInput" class="form-label">Meeting Title</label>
+                        <input type="text" class="form-control" id="meetingTitleInput" placeholder="My Meeting">
+                    </div>
+                    <button class="btn btn-success" id="createMeetingBtn">Create Meeting</button>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">Join Meeting</div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label for="meetingCodeInput" class="form-label">Meeting Code</label>
+                        <input type="text" class="form-control" id="meetingCodeInput" placeholder="Enter code">
+                    </div>
+                    <button class="btn btn-primary" id="joinMeetingBtn">Join Meeting</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">Meeting Status</div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <strong>Current Meeting:</strong> <span id="currentMeetingCode">None</span>
+                    </div>
+                    <div class="mb-3">
+                        <strong>Status:</strong> <span id="meetingStatus">Not in a meeting</span>
+                    </div>
+                    <div class="mb-3">
+                        <strong>MediaSoup Room ID:</strong> <span id="mediaRoomId">None</span>
+                    </div>
+                    <div class="mb-3">
+                        <strong>Role:</strong> <span id="userRole">None</span>
+                    </div>
+                    <div class="mb-3">
+                        <strong>Participants:</strong>
+                        <ul id="participantList" class="participant-list list-group mt-2">
+                            <!-- Participants will be listed here -->
+                        </ul>
+                    </div>
+                    <div id="hostControls" style="display: none;">
+                        <h5>Host Controls</h5>
+                        <div id="joinRequests" class="mb-3">
+                            <strong>Join Requests:</strong>
+                            <ul id="joinRequestsList" class="list-group mt-2">
+                                <!-- Join requests will be listed here -->
+                            </ul>
+                        </div>
+                        <button class="btn btn-danger" id="endMeetingBtn">End Meeting</button>
+                    </div>
+                    <div id="participantControls" style="display: none;">
+                        <h5>Participant Controls</h5>
+                        <button class="btn btn-warning" id="leaveMeetingBtn">Leave Meeting</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">Video Conference</div>
+                <div class="card-body">
+                    <div class="controls">
+                        <button class="btn btn-primary" id="startVideoBtn">Start Video</button>
+                        <button class="btn btn-primary" id="stopVideoBtn">Stop Video</button>
+                        <button class="btn btn-primary" id="startAudioBtn">Start Audio</button>
+                        <button class="btn btn-primary" id="stopAudioBtn">Stop Audio</button>
+                        <button class="btn btn-primary" id="startScreenBtn">Share Screen</button>
+                        <button class="btn btn-primary" id="stopScreenBtn">Stop Sharing</button>
+                    </div>
+                    <div class="video-container" id="videoContainer">
+                        <div class="video-wrapper">
+                            <video id="localVideo" autoplay muted playsinline></video>
+                            <div class="user-label">You</div>
+                        </div>
+                        <!-- Remote videos will be added here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">Debug Log</div>
+                <div class="card-body">
+                    <div id="logContainer"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Libraries -->
+<script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
+<!--<script src="https://cdn.jsdelivr.net/npm/mediasoup-client@3.9.8/dist/mediasoup-client.min.js"></script>-->
+<!--<script src="https://unpkg.com/mediasoup-client@3.9.8/dist/mediasoup-client.min.js"></script>-->
+
+<script>
+
+    let mediasoupClient;
+
+    // Function to load MediaSoup client
+    async function loadMediasoup() {
+        try {
+            const script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/mediasoup-client@3.9.8/lib/index.min.js';
+            script.onload = () => {
+                mediasoupClient = window.mediasoupClient;
+                log('MediaSoup client loaded successfully', 'success');
+                console.log('MediaSoup client available:', mediasoupClient);
+            };
+            script.onerror = (e) => {
+                log('Failed to load MediaSoup client', 'error');
+                console.error('Script loading error:', e);
+            };
+            document.head.appendChild(script);
+        } catch (error) {
+            log(`Error loading MediaSoup: ${error.message}`, 'error');
+        }
+    }
+
+    // Call this function before you try to use mediasoupClient
+    loadMediasoup();
+
+    // Configuration
+    const BASE_URL = 'http://localhost:8090';
+    const API_URL = `${BASE_URL}/api`;
+    const WS_URL = `${BASE_URL}/ws`;
+
+    // State management
+    let currentUser = null;
+    let currentMeeting = null;
+    let currentMediaRoomId = null;
+    let isHost = false;
+    let stompClient = null;
+    let device = null;
+    let sendTransport = null;
+    let recvTransport = null;
+    let producers = {};
+    let consumers = {};
+    let localStream = null;
+    let screenStream = null;
+
+    // DOM elements
+    const logContainer = document.getElementById('logContainer');
+    const currentMeetingCodeEl = document.getElementById('currentMeetingCode');
+    const meetingStatusEl = document.getElementById('meetingStatus');
+    const mediaRoomIdEl = document.getElementById('mediaRoomId');
+    const userRoleEl = document.getElementById('userRole');
+    const participantListEl = document.getElementById('participantList');
+    const joinRequestsListEl = document.getElementById('joinRequestsList');
+    const hostControlsEl = document.getElementById('hostControls');
+    const participantControlsEl = document.getElementById('participantControls');
+    const videoContainer = document.getElementById('videoContainer');
+    const localVideo = document.getElementById('localVideo');
+
+
+    // Helper functions
+    function log(message, type = 'info') {
+        const logEntry = document.createElement('div');
+        logEntry.className = `log-entry log-${type}`;
+
+        const time = new Date().toLocaleTimeString();
+        logEntry.innerHTML = `<span class="log-time">[${time}]</span> ${message}`;
+
+        logContainer.appendChild(logEntry);
+        logContainer.scrollTop = logContainer.scrollHeight;
+    }
+
+    function updateUI() {
+        if (currentUser) {
+            document.getElementById('logoutBtn').disabled = false;
+            document.getElementById('createMeetingBtn').disabled = false;
+            document.getElementById('joinMeetingBtn').disabled = false;
+        } else {
+            document.getElementById('logoutBtn').disabled = true;
+            document.getElementById('createMeetingBtn').disabled = true;
+            document.getElementById('joinMeetingBtn').disabled = true;
+        }
+
+        if (currentMeeting) {
+            currentMeetingCodeEl.textContent = currentMeeting.code;
+            meetingStatusEl.textContent = currentMeeting.status;
+            mediaRoomIdEl.textContent = currentMediaRoomId || 'None';
+            userRoleEl.textContent = isHost ? 'Host' : 'Participant';
+
+            if (isHost) {
+                hostControlsEl.style.display = 'block';
+                participantControlsEl.style.display = 'none';
+            } else {
+                hostControlsEl.style.display = 'none';
+                participantControlsEl.style.display = 'block';
+            }
+        } else {
+            currentMeetingCodeEl.textContent = 'None';
+            meetingStatusEl.textContent = 'Not in a meeting';
+            mediaRoomIdEl.textContent = 'None';
+            userRoleEl.textContent = 'None';
+            hostControlsEl.style.display = 'none';
+            participantControlsEl.style.display = 'none';
+            participantListEl.innerHTML = '';
+            joinRequestsListEl.innerHTML = '';
+        }
+    }
+
+    // API functions
+    async function login() {
+        try {
+            const email = document.getElementById('emailInput').value;
+            const password = document.getElementById('passwordInput').value;
+
+            if (!email || !password) {
+                log('Email and password are required', 'error');
+                return;
+            }
+
+            const response = await axios.post(`${API_URL}/auth/login`, {
+                email: email,
+                password: password
+            }, {
+                withCredentials: true
+            });
+
+            currentUser = response.data;
+            log(`Logged in as ${currentUser || "guest"}`, 'success');
+            updateUI();
+            connectWebSocket();
+        } catch (error) {
+            console.error(error);
+            log(`Login failed: ${error.response?.data?.message || error.message}`, 'error');
+        }
+    }
+
+    async function register() {
+        try {
+            const email = document.getElementById('emailInput').value;
+            const password = document.getElementById('passwordInput').value;
+            const name = document.getElementById('nameInput').value;
+
+            if (!email || !password || !name) {
+                log('Email, password, and name are required', 'error');
+                return;
+            }
+
+            const response = await axios.post(`${API_URL}/auth/register`, {
+                email: email,
+                password: password,
+                name: name
+            });
+
+            log(`Registration successful. Please login.`, 'success');
+        } catch (error) {
+            console.error(error);
+            log(`Registration failed: ${error.response?.data?.message || error.message}`, 'error');
+        }
+    }
+
+    async function logout() {
+        try {
+            await axios.post(`${API_URL}/auth/logout`, {}, {withCredentials: true});
+
+            if (currentMeeting) {
+                await leaveMeeting();
+            }
+
+            if (stompClient) {
+                stompClient.disconnect();
+                stompClient = null;
+            }
+
+            currentUser = null;
+            log('Logged out successfully', 'success');
+            updateUI();
+        } catch (error) {
+            console.error(error);
+            log(`Logout failed: ${error.message}`, 'error');
+        }
+    }
+
+    async function createMeeting() {
+        try {
+            const title = document.getElementById('meetingTitleInput').value || 'Instant Meeting';
+
+            const response = await axios.post(`${API_URL}/meeting`, { title }, {withCredentials: true});
+
+            currentMeeting = response.data;
+            console.log(currentMeeting);
+            currentMediaRoomId = response.data.mediaRoomId;
+            isHost = true;
+
+            log(`Meeting created with code: ${currentMeeting.code}`, 'success');
+            updateUI();
+
+            // Automatically join the meeting as host
+            await setupMediasoup();
+        } catch (error) {
+            console.error(error);
+            log(`Failed to create meeting: ${error.response?.data?.message || error.message}`, 'error');
+        }
+    }
+
+    async function joinMeeting() {
+        try {
+            const code = document.getElementById('meetingCodeInput').value;
+
+            if (!code) {
+                log('Meeting code is required', 'error');
+                return;
+            }
+
+            const response = await axios.post(`${API_URL}/meeting/${code}`,{}, { withCredentials: true });
+
+            if (response.data.participantStatus === 'WAITING') {
+                currentMeeting = {
+                    code: response.data.meetingCode,
+                    status: response.data.meetingStatus,
+                    participantId: response.data.participantId
+                };
+                isHost = false;
+                log(`Join request sent. Waiting for host approval.`, 'info');
+                meetingStatusEl.textContent = 'Waiting for host approval';
+            } else if (response.data.participantStatus === 'ACCEPTED') {
+                // Host joining their own meeting
+                currentMeeting = {
+                    code: response.data.meetingCode,
+                    status: response.data.meetingStatus
+                };
+                currentMediaRoomId = response.data.mediaRoomId;
+                isHost = true;
+                log(`Joined meeting as host`, 'success');
+                await setupMediasoup();
+            }
+
+            updateUI();
+        } catch (error) {
+            console.error(error);
+            log(`Failed to join meeting: ${error.response?.data?.message || error.message}`, 'error');
+        }
+    }
+
+    async function acceptJoinRequest(participantId) {
+        try {
+            const response = await axios.post(`${API_URL}/meeting/${currentMeeting.code}/accept`, {
+                participantId: participantId
+            }, {
+                withCredentials: true
+            });
+
+            log(`Accepted join request from participant ${participantId}`, 'success');
+
+            // Remove join request from list
+            const requestElement = document.getElementById(`join-request-${participantId}`);
+            if (requestElement) {
+                requestElement.remove();
+            }
+        } catch (error) {
+            console.error(error);
+            log(`Failed to accept join request: ${error.response?.data?.message || error.message}`, 'error');
+        }
+    }
+
+    async function rejectJoinRequest(participantId) {
+        try {
+            const response = await axios.post(`${API_URL}/meeting/${currentMeeting.code}/reject`, {
+                participantId: participantId
+            }, {
+                withCredentials: true
+            });
+
+            log(`Rejected join request from participant ${participantId}`, 'success');
+
+            // Remove join request from list
+            const requestElement = document.getElementById(`join-request-${participantId}`);
+            if (requestElement) {
+                requestElement.remove();
+            }
+        } catch (error) {
+            console.error(error);
+            log(`Failed to reject join request: ${error.response?.data?.message || error.message}`, 'error');
+        }
+    }
+
+    async function leaveMeeting() {
+        try {
+            if (!currentMeeting) return;
+
+            // Close all producers and consumers
+            Object.values(producers).forEach(producer => {
+                if (producer) producer.close();
+            });
+            producers = {};
+
+            Object.values(consumers).forEach(consumer => {
+                if (consumer) consumer.close();
+            });
+            consumers = {};
+
+            // Close transports
+            if (sendTransport) {
+                sendTransport.close();
+                sendTransport = null;
+            }
+
+            if (recvTransport) {
+                recvTransport.close();
+                recvTransport = null;
+            }
+
+            // Stop local media streams
+            if (localStream) {
+                localStream.getTracks().forEach(track => track.stop());
+                localStream = null;
+            }
+
+            if (screenStream) {
+                screenStream.getTracks().forEach(track => track.stop());
+                screenStream = null;
+            }
+
+            const response = await axios.post(`${API_URL}/meeting/${currentMeeting.code}/leave`, {}, {
+                withCredentials: true
+            });
+
+            log(`Left meeting ${currentMeeting.code}`, 'info');
+
+            currentMeeting = null;
+            currentMediaRoomId = null;
+            isHost = false;
+            device = null;
+
+            // Clear video container except for local video
+            const remoteVideos = videoContainer.querySelectorAll('.remote-video-wrapper');
+            remoteVideos.forEach(el => el.remove());
+
+            localVideo.srcObject = null;
+
+            updateUI();
+        } catch (error) {
+            console.error(error);
+            log(`Failed to leave meeting: ${error.response?.data?.message || error.message}`, 'error');
+        }
+    }
+
+    async function endMeeting() {
+        try {
+            if (!currentMeeting || !isHost) return;
+
+            const response = await axios.post(`${API_URL}/meeting/${currentMeeting.code}/end`, {}, {
+                withCredentials: true
+            });
+
+            log(`Meeting ${currentMeeting.code} ended`, 'info');
+
+            await leaveMeeting();
+        } catch (error) {
+            console.error(error);
+            log(`Failed to end meeting: ${error.response?.data?.message || error.message}`, 'error');
+        }
+    }
+
+    async function kickParticipant(participantId) {
+        try {
+            if (!currentMeeting || !isHost) return;
+
+            const response = await axios.post(`${API_URL}/meeting/${currentMeeting.code}/kick/${participantId}`, {}, {
+                withCredentials: true
+            });
+
+            log(`Kicked participant ${participantId}`, 'success');
+
+            // Remove participant from list
+            const participantElement = document.getElementById(`participant-${participantId}`);
+            if (participantElement) {
+                participantElement.remove();
+            }
+        } catch (error) {
+            console.error(error);
+            log(`Failed to kick participant: ${error.response?.data?.message || error.message}`, 'error');
+        }
+    }
+
+    // WebSocket functions
+    function connectWebSocket() {
+        const socket = new SockJS(WS_URL);
+        stompClient = Stomp.over(socket);
+
+        stompClient.connect({}, frame => {
+            log('Connected to WebSocket', 'success');
+
+            // Subscribe to meeting updates
+            stompClient.subscribe('/topic/meetings', message => {
+                const data = JSON.parse(message.body);
+                handleMeetingUpdate(data);
+            });
+
+            // Subscribe to personal notifications
+            if (currentUser) {
+                stompClient.subscribe(`/user/${currentUser.email}/queue/join-requests`, message => {
+                    const data = JSON.parse(message.body);
+                    handleJoinRequest(data);
+                });
+
+                stompClient.subscribe(`/user/${currentUser.email}/queue/meeting-updates`, message => {
+                    const data = JSON.parse(message.body);
+                    handlePersonalUpdate(data);
+                });
+            }
+        }, error => {
+            log(`WebSocket connection error: ${error}`, 'error');
+        });
+    }
+
+    function handleMeetingUpdate(data) {
+        log(`Meeting update: ${data.type}`, 'info');
+
+        switch (data.type) {
+            case 'MEETING_CREATED':
+                log(`New meeting created: ${data.meetingCode}`, 'info');
+                break;
+
+            case 'HOST_JOINED':
+                log(`Host joined the meeting: ${data.name}`, 'info');
+                addParticipantToList(data.userId, data.name, true);
+                break;
+
+            case 'PARTICIPANT_JOINED':
+                log(`Participant joined: ${data.name}`, 'info');
+                addParticipantToList(data.userId, data.name, false, data.participantId);
+                break;
+
+            case 'PARTICIPANT_LEFT':
+                log(`Participant left: ${data.userId}`, 'info');
+                removeParticipantFromList(data.participantId);
+                removeRemoteVideo(data.userId);
+                break;
+
+            case 'PARTICIPANT_KICKED':
+                log(`Participant kicked: ${data.userId}`, 'info');
+                removeParticipantFromList(data.participantId);
+                removeRemoteVideo(data.userId);
+                break;
+
+            case 'MEETING_ENDED':
+                log(`Meeting ended`, 'warning');
+                if (currentMeeting && currentMeeting.code === data.meetingCode) {
+                    leaveMeeting();
+                }
+                break;
+        }
+    }
+
+    function handleJoinRequest(data) {
+        if (data.type === 'JOIN_REQUEST' && isHost) {
+            log(`Join request from ${data.userName} (${data.userEmail})`, 'info');
+
+            // Add to join requests list
+            const listItem = document.createElement('li');
+            listItem.className = 'list-group-item d-flex justify-content-between align-items-center join-request';
+            listItem.id = `join-request-${data.participantId}`;
+
+            listItem.innerHTML = `
+                    <div>${data.userName} (${data.userEmail})</div>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-sm btn-success accept-btn">Accept</button>
+                        <button class="btn btn-sm btn-danger reject-btn">Reject</button>
+                    </div>
+                `;
+
+            const acceptBtn = listItem.querySelector('.accept-btn');
+            acceptBtn.addEventListener('click', () => acceptJoinRequest(data.participantId));
+
+            const rejectBtn = listItem.querySelector('.reject-btn');
+            rejectBtn.addEventListener('click', () => rejectJoinRequest(data.participantId));
+
+            joinRequestsListEl.appendChild(listItem);
+        }
+    }
+
+    function handlePersonalUpdate(data) {
+        log(`Personal update: ${data.type}`, 'info');
+
+        switch (data.type) {
+            case 'JOIN_ACCEPTED':
+                log(`Your join request was accepted`, 'success');
+                currentMediaRoomId = data.mediaRoomId;
+                meetingStatusEl.textContent = 'Joined';
+                setupMediasoup();
+                break;
+
+            case 'JOIN_REJECTED':
+                log(`Your join request was rejected`, 'error');
+                currentMeeting = null;
+                updateUI();
+                break;
+
+            case 'YOU_WERE_KICKED':
+                log(`You were kicked from the meeting`, 'error');
+                leaveMeeting();
+                break;
+        }
+    }
+
+    function addParticipantToList(userId, name, isHostUser, participantId = null) {
+        // Check if participant is already in the list
+        if (document.getElementById(`participant-${participantId || userId}`)) {
+            return;
+        }
+
+        const listItem = document.createElement('li');
+        listItem.className = 'list-group-item d-flex justify-content-between align-items-center';
+        listItem.id = `participant-${participantId || userId}`;
+
+        if (isHostUser) {
+            listItem.innerHTML = `
+                    <div><strong>${name}</strong> (Host)</div>
+                `;
+        } else if (isHost) {
+            // Only show kick button if current user is host and this is not the host
+            listItem.innerHTML = `
+                    <div>${name}</div>
+                    <button class="btn btn-sm btn-danger kick-btn">Kick</button>
+                `;
+
+            const kickBtn = listItem.querySelector('.kick-btn');
+            kickBtn.addEventListener('click', () => kickParticipant(participantId));
+        } else {
+            listItem.innerHTML = `<div>${name}</div>`;
+        }
+
+        participantListEl.appendChild(listItem);
+    }
+
+    function removeParticipantFromList(participantId) {
+        const participantElement = document.getElementById(`participant-${participantId}`);
+        if (participantElement) {
+            participantElement.remove();
+        }
+    }
+
+    // MediaSoup functions
+    async function setupMediasoup() {
+        try {
+            log('Setting up MediaSoup', 'info');
+
+            // Get ICE servers
+            const iceServersResponse = await axios.get(`${API_URL}/meeting/ice-servers`, {withCredentials: true});
+            const iceServers = iceServersResponse.data;
+
+            // Create device
+            device = new mediasoupClient.Device();
+
+            // Get router RTP capabilities
+            const routerRtpCapabilitiesResponse = await axios.get(`${API_URL}/webrtc/rooms/${currentMediaRoomId}`, {
+                withCredentials: true
+            });
+            const routerRtpCapabilities = routerRtpCapabilitiesResponse.data.router;
+
+            // Load device
+            await device.load({ routerRtpCapabilities });
+
+            log('MediaSoup device loaded', 'success');
+
+            // Create send transport
+            await createSendTransport();
+
+            // Create receive transport
+            await createReceiveTransport();
+
+            log('MediaSoup transports created', 'success');
+        } catch (error) {
+            console.error(error);
+            log(`MediaSoup setup failed: ${error.message}`, 'error');
+        }
+    }
+
+    async function createSendTransport() {
+        try {
+            const response = await axios.post(`${API_URL}/webrtc/transport`, {
+                roomId: currentMediaRoomId,
+                userId: currentUser.id,
+                direction: 'send'
+            },{
+                withCredentials: true
+            });
+
+            const transport = response.data;
+
+            sendTransport = device.createSendTransport({
+                id: transport.id,
+                iceParameters: transport.iceParameters,
+                iceCandidates: transport.iceCandidates,
+                dtlsParameters: transport.dtlsParameters,
+                iceServers: []
+            });
+
+            sendTransport.on('connect', async ({ dtlsParameters }, callback, errback) => {
+                try {
+                    await axios.post(`${API_URL}/webrtc/transport/connect`, {
+                        transportId: sendTransport.id,
+                        dtlsParameters
+                    },{
+                        withCredentials: true
+                    });
+
+                    callback();
+                } catch (error) {
+                    errback(error);
+                }
+            });
+
+            sendTransport.on('produce', async ({ kind, rtpParameters, appData }, callback, errback) => {
+                try {
+                    const response = await axios.post(`${API_URL}/webrtc/produce`, {
+                        transportId: sendTransport.id,
+                        kind,
+                        rtpParameters,
+                        appData
+                    },{
+                        withCredentials: true
+                    });
+
+                    callback({ id: response.data.id });
+                } catch (error) {
+                    errback(error);
+                }
+            });
+
+            log('Send transport created', 'success');
+        } catch (error) {
+            console.error(error);
+            log(`Failed to create send transport: ${error.message}`, 'error');
+        }
+    }
+
+    async function createReceiveTransport() {
+        try {
+            const response = await axios.post(`${API_URL}/webrtc/transport`, {
+                roomId: currentMediaRoomId,
+                userId: currentUser.id,
+                direction: 'recv'
+            },{
+                withCredentials: true
+            });
+
+            const transport = response.data;
+
+            recvTransport = device.createRecvTransport({
+                id: transport.id,
+                iceParameters: transport.iceParameters,
+                iceCandidates: transport.iceCandidates,
+                dtlsParameters: transport.dtlsParameters,
+                iceServers: []
+            });
+
+            recvTransport.on('connect', async ({ dtlsParameters }, callback, errback) => {
+                try {
+                    await axios.post(`${API_URL}/webrtc/transport/connect`, {
+                        transportId: recvTransport.id,
+                        dtlsParameters
+                    },{
+                        withCredentials: true
+                    });
+                    callback();
+                } catch (error) {
+                    errback(error);
+                }
+            });
+
+            log('Receive transport created', 'success');
+
+            // Subscribe to existing producers in the room
+            await subscribeToProducers();
+        } catch (error) {
+            log(`Failed to create receive transport: ${error.message}`, 'error');
+        }
+    }
+
+    async function subscribeToProducers() {
+        try {
+            const response = await axios.get(`${API_URL}/webrtc/rooms/${currentMediaRoomId}`, {
+                withCredentials: true
+            });
+            const room = response.data;
+
+            if (room && room.participants) {
+                for (const [participantId, participant] of Object.entries(room.participants)) {
+                    if (participantId !== currentUser.id) {
+                        for (const producer of Object.values(participant.producer || {})) {
+                            await consumeTrack(producer.id, participantId, producer.kind);
+                        }
+                    }
+                }
+            }
+        } catch (error) {
+            console.error(error);
+            log(`Failed to subscribe to producers: ${error.message}`, 'error');
+        }
+    }
+
+    async function produceTrack(track, kind) {
+        try {
+            if (!sendTransport) {
+                throw new Error('Send transport not created');
+            }
+
+            const producer = await sendTransport.produce({
+                track,
+                encodings: kind === 'video' ? [
+                    { maxBitrate: 100000 },
+                    { maxBitrate: 300000 },
+                    { maxBitrate: 900000 }
+                ] : undefined,
+                codecOptions: kind === 'video' ? {
+                    videoGoogleStartBitrate: 1000
+                } : undefined,
+                appData: { kind }
+            });
+
+            producers[kind] = producer;
+
+            producer.on('trackended', () => {
+                log(`${kind} track ended`, 'warning');
+                closeProducer(kind);
+            });
+
+            producer.on('transportclose', () => {
+                log(`${kind} transport closed`, 'warning');
+                producer.close();
+                delete producers[kind];
+            });
+
+            log(`${kind} producer created`, 'success');
+            return producer;
+        } catch (error) {
+            console.error(error);
+            log(`Failed to produce ${kind}: ${error.message}`, 'error');
+            throw error;
+        }
+    }
+
+    async function consumeTrack(producerId, producerPeerId, kind) {
+        try {
+            if (!recvTransport) {
+                throw new Error('Receive transport not created');
+            }
+
+            const { rtpCapabilities } = device;
+
+            const response = await axios.post(`${API_URL}/webrtc/consume`, {
+                transportId: recvTransport.id,
+                producerId,
+                rtpCapabilities
+            },{
+                withCredentials: true
+            });
+
+            const { id, kind: consumerKind, rtpParameters } = response.data;
+
+            const consumer = await recvTransport.consume({
+                id,
+                producerId,
+                kind: consumerKind,
+                rtpParameters
+            });
+
+            consumers[id] = consumer;
+
+            consumer.on('transportclose', () => {
+                log(`Consumer transport closed`, 'warning');
+                consumer.close();
+                delete consumers[id];
+            });
+
+            // Resume the consumer
+            await axios.post(`${API_URL}/webrtc/consumer/${id}/resume`, {}, {
+                withCredentials: true
+            });
+
+            // Add remote video to container
+            if (kind === 'video') {
+                const stream = new MediaStream([consumer.track]);
+                addRemoteVideo(producerPeerId, stream);
+            }
+
+            log(`${kind} consumer created`, 'success');
+            return consumer;
+        } catch (error) {
+            console.error(error);
+            log(`Failed to consume ${kind}: ${error.message}`, 'error');
+            throw error;
+        }
+    }
+
+    async function closeProducer(kind) {
+        try {
+            const producer = producers[kind];
+            if (!producer) return;
+
+            producer.close();
+            delete producers[kind];
+
+            await axios.post(`${API_URL}/webrtc/producer/${producer.id}/close`, {}, {
+                withCredentials: true
+            });
+
+            log(`${kind} producer closed`, 'info');
+        } catch (error) {
+            console.error(error);
+            log(`Failed to close ${kind} producer: ${error.message}`, 'error');
+        }
+    }
+
+    function addRemoteVideo(participantId, stream) {
+        // Check if video already exists for this participant
+        const existingVideo = document.getElementById(`remote-video-${participantId}`);
+        if (existingVideo) {
+            existingVideo.srcObject = stream;
+            return;
+        }
+
+        // Create new video element
+        const videoWrapper = document.createElement('div');
+        videoWrapper.className = 'video-wrapper remote-video-wrapper';
+        videoWrapper.id = `remote-video-wrapper-${participantId}`;
+
+        const video = document.createElement('video');
+        video.id = `remote-video-${participantId}`;
+        video.autoplay = true;
+        video.playsInline = true;
+        video.srcObject = stream;
+
+        // Try to get participant name
+        let participantName = 'Remote User';
+        const participant = document.getElementById(`participant-${participantId}`);
+        if (participant) {
+            participantName = participant.querySelector('div').textContent.replace(' (Host)', '');
+        }
+
+        const label = document.createElement('div');
+        label.className = 'user-label';
+        label.textContent = participantName;
+
+        videoWrapper.appendChild(video);
+        videoWrapper.appendChild(label);
+        videoContainer.appendChild(videoWrapper);
+
+        log(`Added remote video for ${participantName}`, 'info');
+    }
+
+    function removeRemoteVideo(participantId) {
+        const videoWrapper = document.getElementById(`remote-video-wrapper-${participantId}`);
+        if (videoWrapper) {
+            videoWrapper.remove();
+            log(`Removed remote video for participant ${participantId}`, 'info');
+        }
+    }
+
+    // Media control functions
+    async function startVideo() {
+        try {
+            if (localStream) {
+                const videoTrack = localStream.getVideoTracks()[0];
+                if (videoTrack) {
+                    videoTrack.enabled = true;
+                    log('Video resumed', 'success');
+                    return;
+                }
+            }
+
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+            const videoTrack = stream.getVideoTracks()[0];
+
+            if (!localStream) {
+                localStream = stream;
+            } else {
+                const audioTrack = localStream.getAudioTracks()[0];
+                if (audioTrack) {
+                    localStream.addTrack(videoTrack);
+                } else {
+                    localStream = stream;
+                }
+            }
+
+            localVideo.srcObject = localStream;
+
+            if (sendTransport) {
+                await produceTrack(videoTrack, 'video');
+            }
+
+            log('Video started', 'success');
+        } catch (error) {
+            console.error(error);
+            log(`Failed to start video: ${error.message}`, 'error');
+        }
+    }
+
+    async function stopVideo() {
+        try {
+            if (!localStream) return;
+
+            const videoTrack = localStream.getVideoTracks()[0];
+            if (videoTrack) {
+                videoTrack.enabled = false;
+
+                // Close video producer
+                if (producers.video) {
+                    await closeProducer('video');
+                }
+            }
+
+            log('Video stopped', 'info');
+        } catch (error) {
+            console.error(error);
+            log(`Failed to stop video: ${error.message}`, 'error');
+        }
+    }
+
+    async function startAudio() {
+        try {
+            if (localStream) {
+                const audioTrack = localStream.getAudioTracks()[0];
+                if (audioTrack) {
+                    audioTrack.enabled = true;
+                    log('Audio resumed', 'success');
+                    return;
+                }
+            }
+
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            const audioTrack = stream.getAudioTracks()[0];
+
+            if (!localStream) {
+                localStream = stream;
+            } else {
+                const videoTrack = localStream.getVideoTracks()[0];
+                if (videoTrack) {
+                    localStream.addTrack(audioTrack);
+                } else {
+                    localStream = stream;
+                }
+            }
+
+            if (sendTransport) {
+                await produceTrack(audioTrack, 'audio');
+            }
+
+            log('Audio started', 'success');
+        } catch (error) {
+            console.error(error);
+            log(`Failed to start audio: ${error.message}`, 'error');
+        }
+    }
+
+    async function stopAudio() {
+        try {
+            if (!localStream) return;
+
+            const audioTrack = localStream.getAudioTracks()[0];
+            if (audioTrack) {
+                audioTrack.enabled = false;
+
+                // Close audio producer
+                if (producers.audio) {
+                    await closeProducer('audio');
+                }
+            }
+
+            log('Audio stopped', 'info');
+        } catch (error) {
+            console.error(error);
+            log(`Failed to stop audio: ${error.message}`, 'error');
+        }
+    }
+
+    async function startScreenShare() {
+        try {
+            if (screenStream) {
+                log('Screen sharing already active', 'warning');
+                return;
+            }
+
+            screenStream = await navigator.mediaDevices.getDisplayMedia({
+                video: true,
+                audio: false
+            });
+
+            const videoTrack = screenStream.getVideoTracks()[0];
+
+            // Replace video track in producers
+            if (producers.video) {
+                await closeProducer('video');
+            }
+
+            // Create new producer for screen sharing
+            if (sendTransport) {
+                await produceTrack(videoTrack, 'video');
+            }
+
+            // Show screen sharing in local video
+            localVideo.srcObject = screenStream;
+
+            // Handle track ending (user stops sharing)
+            videoTrack.addEventListener('ended', () => {
+                stopScreenShare();
+            });
+
+            log('Screen sharing started', 'success');
+        } catch (error) {
+            console.error(error);
+            log(`Failed to start screen sharing: ${error.message}`, 'error');
+        }
+    }
+
+    async function stopScreenShare() {
+        try {
+            if (!screenStream) return;
+
+            screenStream.getTracks().forEach(track => track.stop());
+            screenStream = null;
+
+            // Close video producer
+            if (producers.video) {
+                await closeProducer('video');
+            }
+
+            // Restart camera video if it was enabled before
+            if (localStream) {
+                localVideo.srcObject = localStream;
+
+                const videoTrack = localStream.getVideoTracks()[0];
+                if (videoTrack && videoTrack.enabled) {
+                    await startVideo();
+                }
+            }
+
+            log('Screen sharing stopped', 'info');
+        } catch (error) {
+            console.error(error);
+            log(`Failed to stop screen sharing: ${error.message}`, 'error');
+        }
+    }
+
+    // Event listeners
+    document.getElementById('loginBtn').addEventListener('click', login);
+    document.getElementById('registerBtn').addEventListener('click', register);
+    document.getElementById('logoutBtn').addEventListener('click', logout);
+    document.getElementById('createMeetingBtn').addEventListener('click', createMeeting);
+    document.getElementById('joinMeetingBtn').addEventListener('click', joinMeeting);
+    document.getElementById('endMeetingBtn').addEventListener('click', endMeeting);
+    document.getElementById('leaveMeetingBtn').addEventListener('click', leaveMeeting);
+    document.getElementById('startVideoBtn').addEventListener('click', startVideo);
+    document.getElementById('stopVideoBtn').addEventListener('click', stopVideo);
+    document.getElementById('startAudioBtn').addEventListener('click', startAudio);
+    document.getElementById('stopAudioBtn').addEventListener('click', stopAudio);
+    document.getElementById('startScreenBtn').addEventListener('click', startScreenShare);
+    document.getElementById('stopScreenBtn').addEventListener('click', stopScreenShare);
+
+    // Initialize UI
+    updateUI();
+    log('NexMeet Test Client initialized', 'info');
+</script>
+</body>
+</html>
