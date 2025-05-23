@@ -179,6 +179,7 @@ public class MeetingService {
             mediaSoupService.joinRoom(meeting.getMediaRoomId(), mediaUser);
         } catch (Exception e) {
             // Log error but continue - don't prevent participant from joining
+
         }
 
         // Notify participant that they've been accepted
@@ -199,7 +200,12 @@ public class MeetingService {
                 "type", "PARTICIPANT_JOINED",
                 "participantId", participant.getId().toString(),
                 "userId", user.getId().toString(),
-                "name", user.getName()
+                "name", user.getName(),
+                "initials", user.getName().substring(0, 1).toUpperCase(),
+                "isMuted", false,
+                "isCameraOff", false,
+                "isScreenSharing", false,
+                "isPinned", false
             )
         );
 
