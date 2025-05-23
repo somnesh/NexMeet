@@ -6,6 +6,7 @@ import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.stereotype.Component;
 
@@ -14,6 +15,8 @@ import java.net.URISyntaxException;
 @Configuration
 @Component
 public class SocketIoClientConfig {
+    @Value("${SOCKET_URL}")
+    private String SOCKET_URL;
 
     private static final Logger logger = LoggerFactory.getLogger(SocketIoClientConfig.class);
     private Socket socket;
@@ -64,7 +67,7 @@ public class SocketIoClientConfig {
             options.secure = false;
             options.transports = new String[]{"websocket"};
 
-            socket = IO.socket("http://localhost:3000", options);
+            socket = IO.socket(SOCKET_URL, options);
             logger.info("Socket.IO client initialized with options: {}", options);
         }
     }
