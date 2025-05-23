@@ -19,7 +19,7 @@ COPY src src
 RUN ./mvnw clean package -DskipTests
 
 # Make port 8080 available (or whatever port your app uses)
-EXPOSE 8080
+EXPOSE 8090
 
 # Define the command to run your application when the container starts
 ENTRYPOINT ["java", "-jar", "target/nexmeet-service-0.0.1-SNAPSHOT.jar"]
