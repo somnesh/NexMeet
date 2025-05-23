@@ -11,6 +11,7 @@ export default function MeetingPage() {
 
   const [currentPage, setCurrentPage] = useState("prejoin");
   const [isHost, setIsHost] = useState(false);
+  const [getMeetingResponse, setGetMeetingResponse] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -38,6 +39,7 @@ export default function MeetingPage() {
       if (res.status === 200) {
         const { host } = res.data;
         setIsHost(host);
+        setGetMeetingResponse(res.data);
       }
     } catch (error) {
       navigate("/404");
@@ -59,7 +61,7 @@ export default function MeetingPage() {
             />
           )}
           {currentPage === "call" && (
-            <VideoCallInterface meetingCode={meetingCode} />
+            <VideoCallInterface meetingCode={meetingCode} getMeetingResponse={getMeetingResponse} />
           )}
         </>
       )}
