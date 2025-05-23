@@ -36,6 +36,7 @@ import {
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import Header from "/src/components/Header.jsx";
 import API from "../api/api";
+import stompService from "/src/services/stompService.js";
 
 export default function PreJoinPage({ meetingCode, setCurrentPage, isHost }) {
   const [loading, setLoading] = useState(false);
@@ -60,6 +61,7 @@ export default function PreJoinPage({ meetingCode, setCurrentPage, isHost }) {
     microphone: false,
     speaker: false,
   });
+  const [isWaiting, setIsWaiting] = useState(false);
 
   const videoRef = useRef(null);
   const audioAnalyserRef = useRef(null);
@@ -407,12 +409,32 @@ export default function PreJoinPage({ meetingCode, setCurrentPage, isHost }) {
 
           setCurrentPage("call");
         }
+
+        if (res.data.participantStatus === "WAITING") {
+          console.log("Waiting someone to accept your request...");
+          setIsWaiting(true);
+        }
       }
     } catch (error) {
       console.error("Error joining meeting:", error);
     }
     setLoading(false);
   };
+
+  useEffect(() => {
+    (async () => {
+      if (isWaiting) {
+        await stompService.connect();
+        stompService.subscribe("/user/queue/meeting-updates", (data) => {
+          console.log("Meeting update received:", data);
+          if (data.type === "JOIN_ACCEPTED") {
+            console.log("Join request accepted");
+            setCurrentPage("call");
+          }
+        })
+      }
+    })();
+  })
 
   // Device selection dropdown component
   const DeviceDropdown = ({
@@ -891,13 +913,13 @@ export default function PreJoinPage({ meetingCode, setCurrentPage, isHost }) {
                   <Button
                     onClick={joinMeeting}
                     className="w-xs py-8 rounded-full bg-primary hover:bg-primary/90 text-white dark:bg-gray-800 dark:hover:bg-gray-900 font-medium text-base transition-all duration-300 cursor-pointer"
-                    disabled={loading}
+                    disabled={loading || isWaiting}
                   >
                     {isHost
                       ? loading
                         ? "Joining..."
                         : "Join Meeting"
-                      : "Ask to Join"}
+                      : isWaiting ?"Asking to join..." :"Ask to Join"}
                   </Button>
                 </div>
               </div>
