@@ -9,7 +9,11 @@ export default defineConfig({
       react(),
       tailwindcss(),
   ],
-  resolve: {
+    define: {
+        global: 'window', // This sets global = window
+    },
+
+    resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
     },
