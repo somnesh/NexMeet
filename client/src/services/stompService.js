@@ -10,7 +10,7 @@ class StompService {
         this.connectionPromise = null;
     }
 
-    connect(serverUrl = import.meta.env.VITE_SERVER_URL) {
+    connect(serverUrl = `${import.meta.env.VITE_SERVER_URL}/ws`) {
         if (this.connected) {
             return Promise.resolve();
         }
