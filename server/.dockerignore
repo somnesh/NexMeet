@@ -1,9 +1,9 @@
 .git
 .gitignore
-.mvn/
-mvnw
-mvnw.cmd
-#target/
+target/
 build/
 .idea/
 *.iml
+*.log
+.DS_Store
+README.md
