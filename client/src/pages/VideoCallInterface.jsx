@@ -26,6 +26,8 @@ import {
   MoreHorizontal,
   Disc2,
   CircleStop,
+  Check,
+  Bell,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -66,8 +68,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { VideoOffIcon as RecordOff } from "lucide-react";
+import mediaSoupService from "/src/services/mediaSoupService.js";
+import stompService from "/src/services/stompService.js";
+import { Card } from "@/components/ui/card"
+import API from "/src/api/api.js";
 
-export default function VideoCallInterface({ meetingCode }) {
+export default function VideoCallInterface({ meetingCode, getMeetingResponse }) {
   // State for UI controls
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [sidebarTab, setSidebarTab] = useState("chat");
@@ -83,6 +89,16 @@ export default function VideoCallInterface({ meetingCode }) {
   const [isCameraOff, setIsCameraOff] = useState(false);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [audioLevel, setAudioLevel] = useState(80);
+  const [videoStream, setVideoStream] = useState(null);
+  const [audioStream, setAudioStream] = useState(null);
+  // State to store remote streams
+  const [remoteStreams, setRemoteStreams] = useState({});
+  const remoteStreamRefs = useRef({});
+  const [localStream, setLocalStream] = useState(null);
+  const videoRefs = useRef({});
+
+
+
 
   // State for chat
   const [chatMessages, setChatMessages] = useState([
@@ -112,55 +128,252 @@ export default function VideoCallInterface({ meetingCode }) {
     },
   ]);
   const [newMessage, setNewMessage] = useState("");
+  const [acceptLoading, setAcceptLoading] = useState(false);
+  const [rejectLoading, setRejectLoading] = useState(false);
 
   // State for participants
   const [participants, setParticipants] = useState([
     {
-      id: 1,
-      name: "You",
-      initials: "YO",
+      participantId: 1,
+      name: localStorage.name,
+      initials: localStorage.name[0],
       isMuted: false,
       isCameraOff: false,
       isScreenSharing: false,
       isCurrentUser: true,
       isPinned: false,
-    },
-    {
-      id: 2,
-      name: "Alex Thompson",
-      initials: "AT",
-      isMuted: false,
-      isCameraOff: true,
-      isScreenSharing: false,
-      isCurrentUser: false,
-      isPinned: false,
-    },
-    {
-      id: 3,
-      name: "Blake Rivera",
-      initials: "BR",
-      isMuted: true,
-      isCameraOff: true,
-      isScreenSharing: false,
-      isCurrentUser: false,
-      isPinned: false,
-    },
-    {
-      id: 4,
-      name: "Casey Jordan",
-      initials: "CJ",
-      isMuted: false,
-      isCameraOff: true,
-      isScreenSharing: false,
-      isCurrentUser: false,
-      isPinned: false,
-    },
+    }
   ]);
+
+  const [joinRequests, setJoinRequests] = useState([])
+  const [showJoinRequestPopup, setShowJoinRequestPopup] = useState(true)
+  const [currentPopupRequest, setCurrentPopupRequest] = useState(null)
+
+  // Set the current popup request when join requests change
+  useEffect(() => {
+    if (joinRequests.length > 0 && !currentPopupRequest) {
+      setCurrentPopupRequest(joinRequests[0])
+      setShowJoinRequestPopup(true)
+    } else if (joinRequests.length === 0) {
+      setCurrentPopupRequest(null)
+      setShowJoinRequestPopup(false)
+    }
+  }, [joinRequests])
 
   // Refs
   const containerRef = useRef(null);
   const localVideoRef = useRef(null);
   const chatContainerRef = useRef(null);
+
+  // Initializing socket.io connection
+
+    // Track if we've completed MediaSoup initialization
+    const [isMediaSoupInitialized, setIsMediaSoupInitialized] = useState(false);
+
+    useEffect(() => {
+      (async () => {
+        try {
+          await mediaSoupService.connect();
+          await stompService.connect();
+
+          stompService.subscribe(`/topic/meeting/${meetingCode}`, handleMeetingMessage);
+          stompService.subscribe("/queue/meeting-updates", (data) => {
+            console.log("Meeting update received:", data);
+          });
+
+          stompService.subscribe(`/topic/room/${meetingCode}`, (data) => {
+            console.log("Room update received:", data);
+            if (data.type === 'PARTICIPANT_JOINED') {
+              console.log("Participant joined:", data);
+              data.isCurrentUser = data.userId === localStorage.userId;
+              setParticipants(prev => [...prev, data]);
+            }
+          });
+
+          if (getMeetingResponse.host) {
+            // Host-specific subscription for join requests
+            console.log("subscribing to join requests")
+            stompService.subscribe('/user/queue/join-requests', (data)=>{
+              console.log('Join request received:', data);
+              if (data.type === 'JOIN_REQUEST') {
+                setJoinRequests(prev => [...prev, data]);
+              }
+            });
+          }
+
+          // Setup MediaSoup event handlers
+          mediaSoupService.on('newConsumer', ({ consumer, peerId, track, kind }) => {
+            console.log(`New ${kind} consumer for peer ${peerId}`);
+
+            // Update remoteStreams
+            setRemoteStreams(prev => {
+              const newStreams = { ...prev };
+              if (!newStreams[peerId]) {
+                newStreams[peerId] = {};
+              }
+              newStreams[peerId][kind] = track;
+              return newStreams;
+            });
+          });
+
+          console.log("before mediaSoupService.setupSocketListeners");
+          await mediaSoupService.setupSocketListeners();
+          await joinRoom();
+          // Signal that MediaSoup is ready
+          setIsMediaSoupInitialized(true);
+
+        } catch (error) {
+          console.log(error);
+        }
+      })();
+
+      return () => {
+        // Disconnect from mediasoup and stomp
+        mediaSoupService.close();
+        stompService.disconnect();
+
+        // Clean up STOMP subscriptions
+        stompService.unsubscribe(`/topic/meeting/${meetingCode}`);
+        stompService.unsubscribe(`/topic/meeting/${meetingCode}/chat`);
+      };
+
+    },[joinRequests]);
+  console.log("Participants after useEffect: ", participants);
+
+  const joinRoom = async () => {
+    const { peerList } = await mediaSoupService.joinRoom(getMeetingResponse.mediaRoomId, localStorage.id, localStorage.name);
+    console.log("list of participants: ",peerList);
+    setParticipants(prev => {
+      return peerList.reduce((acc, newParticipant) => {
+        const existingIndex = acc.findIndex(p => p.userId === newParticipant.userId);
+        if (existingIndex !== -1) {
+          // Merge newParticipant with existing one
+          const updatedParticipant = {
+            ...acc[existingIndex],
+            ...newParticipant
+          };
+          acc[existingIndex] = updatedParticipant;
+        } else {
+          // Add new participant
+          acc.push(newParticipant);
+        }
+        return acc;
+      }, [...prev]);
+    });
+  }
+    useEffect(() => {
+      const initializeLocalMedia = async () => {
+        try {
+          // Request access to camera and microphone
+          const stream = await navigator.mediaDevices.getUserMedia({
+            audio: true,
+            video: true
+          });
+
+          setLocalStream(stream);
+
+          // Display local video
+          if (localVideoRef.current) {
+            localVideoRef.current.srcObject = stream;
+          }
+
+          console.log("MediaSoup state:", {
+            socket: mediaSoupService.socket?.connected,
+            device: mediaSoupService.device?.loaded,
+            producerTransport: !!mediaSoupService.producerTransport,
+            consumerTransport: !!mediaSoupService.consumerTransport
+          });
+
+
+          // Produce tracks for MediaSoup
+          const audioTrack = stream.getAudioTracks()[0];
+          if (audioTrack) {
+            console.log("Producing audio track");
+
+            await mediaSoupService.produceTrack(audioTrack, 'audio');
+          }
+
+          const videoTrack = stream.getVideoTracks()[0];
+          if (videoTrack) {
+            console.log("Producing video track");
+
+            await mediaSoupService.produceTrack(videoTrack, 'video');
+          }
+
+          return stream;
+        } catch (error) {
+          console.error('Error accessing media devices:', error);
+          // Set camera and mic to off if access is denied
+          setIsCameraOff(true);
+          setIsMicMuted(true);
+        }
+      };
+
+      initializeLocalMedia();
+
+      // Cleanup function to stop all tracks
+      return () => {
+        if (localStream) {
+          localStream.getTracks().forEach(track => track.stop());
+        }
+      };
+    }, []);
+
+
+
+
+  const handleJoinRequest = async (id, isAccepted) => {
+    try{
+      if(isAccepted) {
+        setAcceptLoading(true)
+        await API.post(`/meeting/${meetingCode}/accept`, {"participantId": id});
+        setJoinRequests(prev => prev.filter(p => p.participantId !== id))
+      }else{
+        setRejectLoading(true)
+        await API.post(`/meeting/${meetingCode}/reject`, {"participantId": id});
+      }
+      setJoinRequests(prev => prev.filter(p => p.participantId !== id))
+
+      // If this was the current popup request, show the next one or hide popup
+      if (currentPopupRequest && currentPopupRequest.participantId === id) {
+        const nextRequest = joinRequests.find((req) => req.participantId !== id)
+        setCurrentPopupRequest(nextRequest || null)
+        if (!nextRequest) {
+          setShowJoinRequestPopup(false)
+        }
+      }
+    }catch (error) {
+      console.log(error);
+    } finally {
+      setAcceptLoading(false)
+      setRejectLoading(false)
+    }
+  }
+
+  const handleMeetingMessage = (data) => {
+    switch (data.type) {
+      case 'JOIN':
+        // Handle new participant joined
+        console.log('Participant joined:', data.user);
+        setParticipants(prev => [...prev, data.user]);
+        break;
+
+      case 'LEAVE':
+        // Handle participant left
+        console.log('Participant left:', data.userId);
+        setParticipants(prev => prev.filter(p => p.userId !== data.userId));
+        break;
+
+      case 'STATUS_CHANGE':
+        // Handle participant status change (mute, video off, etc.)
+        console.log('Status change:', data);
+        break;
+
+      default:
+        console.log('Unknown meeting message type:', data.type);
+    }
+  };
+
 
   // Handle sending a new message
   const handleSendMessage = (e) => {
@@ -217,7 +430,7 @@ export default function VideoCallInterface({ meetingCode }) {
   const togglePinParticipant = (id) => {
     setParticipants(
       participants.map((participant) => {
-        if (participant.id === id) {
+        if (participant.participantId === id) {
           return { ...participant, isPinned: !participant.isPinned };
         } else if (participant.isPinned) {
           return { ...participant, isPinned: false };
@@ -235,31 +448,322 @@ export default function VideoCallInterface({ meetingCode }) {
     }).format(timestamp);
   };
 
-  // Effect to simulate local video
+  // // Effect to simulate local video
+  // useEffect(() => {
+  //   let stream;
+  //
+  //   const startCamera = async () => {
+  //     try {
+  //       stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: {
+  //           width: { ideal: 1280 },
+  //           height: { ideal: 720 }
+  //         }
+  //       });
+  //       if (localVideoRef.current) {
+  //         localVideoRef.current.srcObject = stream;
+  //         setVideoStream(stream);
+  //       }
+  //
+  //       if (mediaSoupService.connected) {
+  //         // Create audio producer
+  //         const audioTrack = stream.getAudioTracks()[0];
+  //         if (audioTrack) {
+  //           await mediaSoupService.produceTrack(audioTrack, 'audio');
+  //         }
+  //
+  //         // Create video producer
+  //         const videoTrack = stream.getVideoTracks()[0];
+  //         if (videoTrack) {
+  //           await mediaSoupService.produceTrack(videoTrack, 'video');
+  //         }
+  //       }
+  //
+  //       } catch (err) {
+  //       console.error("Error accessing camera:", err);
+  //     }
+  //   };
+  //
+  //   if (!isCameraOff) {
+  //     startCamera();
+  //   }
+  //
+  //   return () => {
+  //     if (stream) {
+  //       stream.getTracks().forEach((track) => track.stop());
+  //     }
+  //   };
+  // }, []);
+  //
+  //
+  // // Set up handlers for remote media
+  // useEffect(() => {
+  //   // Handle new consumers (remote streams)
+  //   const handleNewConsumer = async (consumer) => {
+  //     const { id, appData, kind, track } = consumer;
+  //     const peerId = appData.peerId;
+  //
+  //     console.log(`New ${kind} consumer for peer ${peerId}`);
+  //
+  //     // Create a new stream if we don't have one for this peer yet
+  //     let stream = remoteStreams[peerId];
+  //     if (!stream) {
+  //       stream = new MediaStream();
+  //       setRemoteStreams(prev => ({
+  //         ...prev,
+  //         [peerId]: stream
+  //       }));
+  //     }
+  //
+  //     // Add track to the stream
+  //     stream.addTrack(track);
+  //
+  //     // Store the consumer to manage it later
+  //     consumer.on('trackended', () => {
+  //       console.log(`Remote ${kind} track ended`);
+  //     });
+  //
+  //     consumer.on('transportclose', () => {
+  //       console.log(`Transport closed for consumer ${id}`);
+  //     });
+  //
+  //     // Resume the consumer
+  //     try {
+  //       await consumer.resume();
+  //     } catch (error) {
+  //       console.error('Error resuming consumer:', error);
+  //     }
+  //   };
+  //
+  //   // Handle consumer closed
+  //   const handleConsumerClosed = (consumer) => {
+  //     const { appData, kind } = consumer;
+  //     const peerId = appData.peerId;
+  //
+  //     console.log(`Consumer closed: ${kind} from peer ${peerId}`);
+  //
+  //     // If we have the stream, remove the track
+  //     const stream = remoteStreams[peerId];
+  //     if (stream) {
+  //       // Remove the specific track type
+  //       stream.getTracks().forEach(track => {
+  //         if (track.kind === kind) {
+  //           stream.removeTrack(track);
+  //           track.stop();
+  //         }
+  //       });
+  //
+  //       // If no tracks remain, remove the stream
+  //       if (stream.getTracks().length === 0) {
+  //         setRemoteStreams(prev => {
+  //           const newState = { ...prev };
+  //           delete newState[peerId];
+  //           return newState;
+  //         });
+  //       }
+  //     }
+  //   };
+  //
+  //   // Add event listeners to MediaSoup
+  //   mediaSoupService.on('newConsumer', handleNewConsumer);
+  //   mediaSoupService.on('consumerClosed', handleConsumerClosed);
+  //
+  //   return () => {
+  //     // Remove event listeners
+  //     mediaSoupService.off('newConsumer', handleNewConsumer);
+  //     mediaSoupService.off('consumerClosed', handleConsumerClosed);
+  //   };
+  // }, [remoteStreams]);
+
+
+
+// Add this useEffect to listen for new consumers (remote tracks)
   useEffect(() => {
-    let stream;
+    const handleNewConsumer = ({ consumer, peerId, track, kind }) => {
+      console.log(`New ${kind} consumer for peer ${peerId}`, track);
 
-    const startCamera = async () => {
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({ video: true });
-        if (localVideoRef.current) {
-          localVideoRef.current.srcObject = stream;
+      // Update remoteStreams
+      setRemoteStreams(prev => {
+        const newRemoteStreams = { ...prev };
+
+        if (!newRemoteStreams[peerId]) {
+          newRemoteStreams[peerId] = {};
         }
-      } catch (err) {
-        console.error("Error accessing camera:", err);
-      }
+
+        newRemoteStreams[peerId][kind] = track;
+        return newRemoteStreams;
+      });
+
+      // Update participant media state
+      setParticipants(prev =>
+          prev.map(p => {
+            if (p.userId === peerId) {
+              if (kind === 'audio') {
+                return { ...p, isMuted: false };
+              } else if (kind === 'video') {
+                return { ...p, isCameraOff: false };
+              }
+            }
+            return p;
+          })
+      );
     };
 
-    if (!isCameraOff) {
-      startCamera();
-    }
+    const handleConsumerClosed = ({ consumer, peerId, kind }) => {
+      console.log(`Consumer closed: ${kind} from peer ${peerId}`);
 
+      // Update remoteStreams
+      setRemoteStreams(prev => {
+        const newRemoteStreams = { ...prev };
+
+        if (newRemoteStreams[peerId]) {
+          const peerStreams = { ...newRemoteStreams[peerId] };
+          delete peerStreams[kind];
+
+          if (Object.keys(peerStreams).length === 0) {
+            delete newRemoteStreams[peerId];
+          } else {
+            newRemoteStreams[peerId] = peerStreams;
+          }
+        }
+
+        return newRemoteStreams;
+      });
+
+      // Update participant media state
+      setParticipants(prev =>
+          prev.map(p => {
+            if (p.userId === peerId) {
+              if (kind === 'audio') {
+                return { ...p, isMuted: true };
+              } else if (kind === 'video') {
+                return { ...p, isCameraOff: true };
+              }
+            }
+            return p;
+          })
+      );
+    };
+
+    // Add event listeners to mediaSoupService
+    mediaSoupService.on('newConsumer', handleNewConsumer);
+    mediaSoupService.on('consumerClosed', handleConsumerClosed);
+
+    // Cleanup
     return () => {
-      if (stream) {
-        stream.getTracks().forEach((track) => track.stop());
-      }
+      mediaSoupService.off('newConsumer', handleNewConsumer);
+      mediaSoupService.off('consumerClosed', handleConsumerClosed);
     };
-  }, [isCameraOff]);
+  }, []);
+
+// Add this hook to handle ref assignment for video elements
+  useEffect(() => {
+    // This will create or update video elements when remoteStreams changes
+    Object.entries(remoteStreams).forEach(([peerId, tracks]) => {
+      if (tracks.video && videoRefs.current[peerId]) {
+        const videoElement = videoRefs.current[peerId];
+
+        // Check if the current video track is different
+        if (!videoElement.srcObject ||
+            !videoElement.srcObject.getVideoTracks()[0] ||
+            videoElement.srcObject.getVideoTracks()[0].id !== tracks.video.id) {
+
+          // Create a new MediaStream with video and audio tracks
+          const stream = new MediaStream();
+
+          // Add video track
+          stream.addTrack(tracks.video);
+
+          // Add audio track if available
+          if (tracks.audio) {
+            stream.addTrack(tracks.audio);
+          }
+
+          videoElement.srcObject = stream;
+
+          // Play the stream
+          videoElement.play().catch(error => {
+            console.error('Error playing remote stream:', error);
+          });
+        }
+      }
+    });
+  }, [remoteStreams]);
+
+
+  // Function to toggle microphone
+  const toggleMicrophone = () => {
+    if (localStream) {
+      const audioTrack = localStream.getAudioTracks()[0];
+      if (audioTrack) {
+        audioTrack.enabled = isMicMuted;
+        setIsMicMuted(!isMicMuted);
+      }
+    }
+  };
+
+// Function to toggle camera
+  const toggleCamera = () => {
+    if (localStream) {
+      const videoTrack = localStream.getVideoTracks()[0];
+      if (videoTrack) {
+        videoTrack.enabled = isCameraOff;
+        setIsCameraOff(!isCameraOff);
+      }
+    }
+  };
+
+// Function to toggle screen sharing
+  const toggleScreenSharing = async () => {
+    if (isScreenSharing) {
+      // Stop screen sharing
+      try {
+        // Find any existing screen share producer and close it
+        mediaSoupService.producers.forEach((producer, id) => {
+          if (producer.appData && producer.appData.source === 'screen') {
+            mediaSoupService.closeProducer(id);
+          }
+        });
+
+        setIsScreenSharing(false);
+      } catch (error) {
+        console.error('Error stopping screen sharing:', error);
+      }
+    } else {
+      // Start screen sharing
+      try {
+        const screenStream = await navigator.mediaDevices.getDisplayMedia({
+          video: {
+            cursor: 'always',
+            displaySurface: 'monitor'
+          }
+        });
+
+        const screenTrack = screenStream.getVideoTracks()[0];
+
+        // Handle user stopping sharing via browser UI
+        screenTrack.addEventListener('ended', () => {
+          setIsScreenSharing(false);
+
+          // Find and close the screen producer
+          mediaSoupService.producers.forEach((producer, id) => {
+            if (producer.appData && producer.appData.source === 'screen') {
+              mediaSoupService.closeProducer(id);
+            }
+          });
+        });
+
+        // Create the producer with special appData
+        await mediaSoupService.produceTrack(screenTrack, 'video', { source: 'screen' });
+
+        setIsScreenSharing(true);
+      } catch (error) {
+        console.error('Error starting screen sharing:', error);
+      }
+    }
+  };
+
+
+
 
   // Effect to scroll chat to bottom on initial load
   useEffect(() => {
@@ -268,7 +772,7 @@ export default function VideoCallInterface({ meetingCode }) {
         chatContainerRef.current.scrollHeight;
     }
   }, []);
-
+  console.log("---Video refs---: ",videoRefs.current);
   // Auto-hide controls after inactivity
   // useEffect(() => {
   //   let timeout;
@@ -300,7 +804,7 @@ export default function VideoCallInterface({ meetingCode }) {
 
   // Filter other participants for the grid
   const otherParticipants = participants.filter(
-    (p) => p.id !== mainParticipant.id
+    (p) => p.participantId !== mainParticipant.participantId
   );
 
   return (
@@ -349,7 +853,8 @@ export default function VideoCallInterface({ meetingCode }) {
                         autoPlay
                         muted={mainParticipant.isCurrentUser}
                         ref={
-                          mainParticipant.isCurrentUser ? localVideoRef : null
+                          mainParticipant.isCurrentUser ? localVideoRef : el => { if (el) videoRefs.current[mainParticipant.userId] = el; }
+
                         }
                       />
                       <div className="absolute bottom-2 left-2 text-white bg-black/50 px-2 py-1 rounded flex items-center gap-2">
@@ -383,8 +888,9 @@ export default function VideoCallInterface({ meetingCode }) {
               {/* Display up to 4 other participants */}
               <div className="flex-1 grid grid-cols-1 gap-1 overflow-hidden">
                 {otherParticipants.slice(0, 4).map((participant) => (
+
                   <div
-                    key={participant.id}
+                    key={participant.participantId}
                     className="relative bg-muted rounded-md overflow-hidden"
                   >
                     {participant.isCameraOff ? (
@@ -407,11 +913,13 @@ export default function VideoCallInterface({ meetingCode }) {
                       </div>
                     ) : (
                       <>
+                        {console.log("participant: ",participant)}
                         <video
                           className="w-full h-full object-cover"
                           autoPlay
                           muted={participant.isCurrentUser}
-                          ref={participant.isCurrentUser ? localVideoRef : null}
+                          ref={participant.isCurrentUser ? localVideoRef : el => { if (el) videoRefs.current[participant.userId] = el; }
+                          }
                         />
                         <div className="absolute bottom-1 left-1 text-white bg-black/50 px-1 py-0.5 rounded text-sm flex items-center gap-1">
                           {participant.name}
@@ -424,7 +932,7 @@ export default function VideoCallInterface({ meetingCode }) {
 
                     {/* Pin/Unpin button for each participant */}
                     <button
-                      onClick={() => togglePinParticipant(participant.id)}
+                      onClick={() => togglePinParticipant(participant.participantId)}
                       className="absolute top-1 right-1 p-1 bg-black/50 rounded-full text-white/80 hover:text-white hover:bg-black/70"
                       title={`${
                         participant.isPinned ? "Unpin" : "Pin"
@@ -484,11 +992,13 @@ export default function VideoCallInterface({ meetingCode }) {
                       </div>
                     </div>
                   ) : (
+
                     <video
                       className="w-full h-full object-cover"
                       autoPlay
                       muted={mainParticipant.isCurrentUser}
-                      ref={mainParticipant.isCurrentUser ? localVideoRef : null}
+                      ref={mainParticipant.isCurrentUser ? localVideoRef : el => { if (el) videoRefs.current[mainParticipant.userId] = el; }
+                      }
                     />
                   )}
 
@@ -505,7 +1015,7 @@ export default function VideoCallInterface({ meetingCode }) {
                   {/* Pin/Unpin button */}
                   <button
                     className="absolute top-2 right-2 bg-black/50 p-1.5 rounded-md hover:bg-black/70 transition-colors"
-                    onClick={() => togglePinParticipant(mainParticipant.id)}
+                    onClick={() => togglePinParticipant(mainParticipant.participantId)}
                   >
                     {mainParticipant.isPinned ? (
                       <PinOff className="h-5 w-5 text-white" />
@@ -519,9 +1029,9 @@ export default function VideoCallInterface({ meetingCode }) {
                 <div className="absolute bottom-4 right-4 flex space-x-2 max-w-[80%] overflow-x-auto py-2 px-1">
                   {otherParticipants.map((participant) => (
                     <div
-                      key={participant.id}
+                      key={participant.participantId}
                       className="relative w-32 h-24 flex-shrink-0 bg-muted rounded-md overflow-hidden border-2 border-transparent hover:border-primary cursor-pointer transition-all"
-                      onClick={() => togglePinParticipant(participant.id)}
+                      onClick={() => togglePinParticipant(participant.participantId)}
                     >
                       {participant.isCameraOff ? (
                         <div className="absolute inset-0 flex flex-col items-center justify-center">
@@ -561,7 +1071,7 @@ export default function VideoCallInterface({ meetingCode }) {
               // Grid layout with all participants
               participants.map((participant) => (
                 <div
-                  key={participant.id}
+                  key={participant.participantId}
                   className={`relative ${
                     participant.isPinned ? "col-span-full row-span-2" : ""
                   } bg-muted rounded-md overflow-hidden`}
@@ -587,12 +1097,58 @@ export default function VideoCallInterface({ meetingCode }) {
                       </div>
                     </div>
                   ) : (
+                      <>
+                      {console.log("participant: ",participant)}
+                        {console.log("remote streams: ",remoteStreams)}
                     <video
                       className=" h-full object-cover"
                       autoPlay
                       muted={participant.isCurrentUser}
-                      ref={participant.isCurrentUser ? localVideoRef : null}
+                      ref={el => {
+                        if (!el) return;
+
+                        if (participant.isCurrentUser) {
+                          localVideoRef.current = el;
+
+                          // Set srcObject for local video
+                          if (localStream && el.srcObject !== localStream) {
+                            console.log("Setting local stream to video element");
+                            el.srcObject = localStream;
+                          }
+                        } else {
+                          // Set ref for remote participant
+                          videoRefs.current[participant.userId] = el;
+
+                          // Check if we have a remote stream for this participant
+                          if (remoteStreams[participant.id]) {
+                            console.log("Found remote stream for", participant.name);
+
+                            // Create a new MediaStream with video and audio tracks
+                            const stream = new MediaStream();
+
+                            // Add video track if available
+                            if (remoteStreams[participant.id].video) {
+                              stream.addTrack(remoteStreams[participant.id].video);
+                            }
+
+                            // Add audio track if available
+                            if (remoteStreams[participant.id].audio) {
+                              stream.addTrack(remoteStreams[participant.id].audio);
+                            }
+
+                            // Set srcObject only if it's different
+                            if (el.srcObject !== stream) {
+                              console.log("Setting remote stream for", participant.name);
+                              el.srcObject = stream;
+                            }
+                          } else {
+                            console.log("No remote stream found for", participant.name);
+                          }
+                        }
+                      }}
+
                     />
+                      </>
                   )}
 
                   {/* Participant info overlay */}
@@ -608,7 +1164,7 @@ export default function VideoCallInterface({ meetingCode }) {
                   {/* Pin/Unpin button */}
                   <button
                     className="absolute top-2 right-2 bg-black/50 p-1.5 rounded-md hover:bg-black/70 transition-colors"
-                    onClick={() => togglePinParticipant(participant.id)}
+                    onClick={() => togglePinParticipant(participant.participantId)}
                   >
                     {participant.isPinned ? (
                       <PinOff className="h-5 w-5 text-white" />
@@ -743,10 +1299,58 @@ export default function VideoCallInterface({ meetingCode }) {
                       </Button>
                     </div>
 
+                    {/* Join Requests Section */}
+                    {joinRequests.length > 0 && (
+                        <div className="mb-4">
+                          <div className="flex items-center justify-between mb-2">
+                            <h4 className="text-sm font-medium text-destructive flex items-center">
+                              <Bell className="h-4 w-4 mr-1" />
+                              Join Requests ({joinRequests.length})
+                            </h4>
+                          </div>
+                          <div className="space-y-2 bg-muted/30 p-2 rounded-md">
+                            {joinRequests.map((request) => (
+                                <div
+                                    key={request.participantId}
+                                    className="flex items-center justify-between p-2 rounded-md bg-background"
+                                >
+                                  <div className="flex items-center space-x-2">
+                                    <Avatar className="h-8 w-8">
+                                      <AvatarFallback>{request.userName[0]}</AvatarFallback>
+                                    </Avatar>
+                                    <div>
+                                      <span className="font-medium text-sm">{request.userName}</span>
+                                      <p className="text-xs text-muted-foreground">{formatTimestamp(request.timestamp)}</p>
+                                    </div>
+                                  </div>
+                                  <div className="flex gap-1">
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                        onClick={() => handleJoinRequest(request.participantId, false)}
+                                    >
+                                      <X className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-8 w-8 text-green-500 hover:text-green-500 hover:bg-green-500/10"
+                                        onClick={() => handleJoinRequest(request.participantId, true)}
+                                    >
+                                      <Check className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                </div>
+                            ))}
+                          </div>
+                        </div>
+                    )}
+
                     <div className="space-y-3">
                       {participants.map((participant) => (
                         <div
-                          key={participant.id}
+                          key={participant.participantId}
                           className="flex items-center justify-between p-2 rounded-md hover:bg-muted/50"
                         >
                           <div className="flex items-center space-x-3">
@@ -804,7 +1408,7 @@ export default function VideoCallInterface({ meetingCode }) {
                             <DropdownMenuContent align="end">
                               <DropdownMenuItem
                                 onClick={() =>
-                                  togglePinParticipant(participant.id)
+                                  togglePinParticipant(participant.participantId)
                                 }
                               >
                                 {participant.isPinned ? (
@@ -1258,6 +1862,51 @@ export default function VideoCallInterface({ meetingCode }) {
           </div>
         </div>
       </div>
+
+      {/* Join Request Popup */}
+      {showJoinRequestPopup && currentPopupRequest && (
+          <div className="fixed bottom-4 right-4 z-50 animate-in slide-in-from-right-10 duration-300">
+            <Card className="w-80 shadow-lg border-l-4 border-l-primary">
+              <div className="p-4">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-3">
+                    <Avatar>
+                      <AvatarFallback>{currentPopupRequest.userName[0]}</AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <h4 className="font-medium text-sm">Join Request</h4>
+                      <p className="text-sm">{currentPopupRequest.userName} wants to join</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {formatTimestamp(currentPopupRequest.timestamp)}
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 -mt-1 -mr-1"
+                      onClick={() => setShowJoinRequestPopup(false)}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+                <div className="flex gap-2 mt-3">
+                  <Button
+                      variant="outline"
+                      className="flex-1"
+                      onClick={() => handleJoinRequest(currentPopupRequest.participantId, false)}
+                      disabled={isLeavingCall}
+                  >
+                    {rejectLoading ? "Rejecting..." : "Reject"}
+                  </Button>
+                  <Button className="flex-1" onClick={() => handleJoinRequest(currentPopupRequest.participantId, true)} disbled={acceptLoading}>
+                    {acceptLoading ? "Accepting..." : "Accept"}
+                  </Button>
+                </div>
+              </div>
+            </Card>
+          </div>
+      )}
 
       {/* Recording Indicator */}
       {isRecording && (
