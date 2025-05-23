@@ -9,13 +9,16 @@ import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.core.user.OAuth2User;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.io.IOException;
 import java.util.Optional;
@@ -30,17 +33,19 @@ public class OAuth2Controller {
         this.userRepository = userRepository;
     }
 
+    @Transactional
     @GetMapping("/google-success")
-    public ResponseEntity<?> googleLoginSuccess(HttpServletRequest request, HttpServletResponse response) throws IOException {
+    public void googleLoginSuccess(HttpServletRequest request, HttpServletResponse response) throws IOException {
+        System.out.println("Inside Google-success! ");
         // Retrieve the OAuth2 user from SecurityContext
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
         if (authentication == null || !(authentication.getPrincipal() instanceof OAuth2User)) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Google authentication failed!");
+            throw new ResponseStatusException(HttpStatusCode.valueOf(500),"Google authentication failed!");
         }
 
         OAuth2User oAuth2User = (OAuth2User) authentication.getPrincipal();
-        System.out.println(oAuth2User);
+        System.out.println("Oauth User: "+oAuth2User);
 
         // Extract user details from Google
         String openId = oAuth2User.getAttribute("sub");
@@ -49,7 +54,7 @@ public class OAuth2Controller {
         String avatar = oAuth2User.getAttribute("picture");
 
         if (email == null) {
-            return ResponseEntity.ok("Failed to retrieve email from Google account!");
+            throw new ResponseStatusException(HttpStatusCode.valueOf(500),"Failed to retrieve email from Google account!");
         }
 
         // Check if user already exists in DB
@@ -68,20 +73,22 @@ public class OAuth2Controller {
             userRepository.save(user);
         }
 
+        System.out.println("User: "+user);
         // Generate JWT token
         String accessToken = JwtUtil.generateAccessToken(String.valueOf(user.getId()), email);
         String refreshToken = JwtUtil.generateRefreshToken(email);
 
+        System.out.println("refresh Token set");
         // Store refresh token in database
         user.setRefreshToken(refreshToken);
         userRepository.save(user);
+        System.out.println("Refresh Token set success");
 
         // Set JWT as HttpOnly cookie
         addCookie(response, "accessToken", accessToken, 15 * 60);
         addCookie(response, "refreshToken", refreshToken, 7 * 24 * 60 * 60);
 
         response.sendRedirect("http://localhost:5173");
-        return ResponseEntity.ok(new AuthResponse(user.getName(), user.getId().toString(), user.getEmail(), user.getAvatar(), accessToken, refreshToken, "Google login success!"));
     }
 
     private void addCookie(HttpServletResponse response, String name, String value, int expiry) {
@@ -89,6 +96,7 @@ public class OAuth2Controller {
         cookie.setHttpOnly(true);
         cookie.setSecure(true);
         cookie.setPath("/");
+        cookie.setDomain("localhost");
         cookie.setMaxAge(expiry);
         cookie.setAttribute("SameSite", "Strict");
         response.addCookie(cookie);
