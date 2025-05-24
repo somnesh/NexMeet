@@ -26,10 +26,10 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import Header from "@/components/header";
 import API from "../api/api";
 import { WholePageLoader } from "../components/loaders/WholePageLoader.jsx";
 import { useNavigate } from "react-router-dom";
+import Header from "../components/Header";
 
 export default function HomePage() {
   const [meetingCode, setMeetingCode] = useState("");
