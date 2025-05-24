@@ -32,7 +32,6 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 
-import useTheme from "../contexts/theme";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Link, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
@@ -41,6 +40,7 @@ import { Button } from "./ui/button";
 import { DialogFooter } from "./ui/dialog";
 import { toast } from "sonner";
 import API from "../api/api";
+import useTheme from "../contexts/Theme";
 
 export function ProfileMenu({ setPageLoading }) {
   const { theme, darkTheme, lightTheme } = useTheme();
