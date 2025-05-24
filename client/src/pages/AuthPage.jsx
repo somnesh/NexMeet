@@ -16,7 +16,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
-import Header from "@/components/header";
+import Header from "../components/header";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 
