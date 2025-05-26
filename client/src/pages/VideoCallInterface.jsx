@@ -70,10 +70,15 @@ import {
 import { VideoOffIcon as RecordOff } from "lucide-react";
 import mediaSoupService from "/src/services/mediaSoupService.js";
 import stompService from "/src/services/stompService.js";
-import { Card } from "@/components/ui/card"
+import { Card } from "@/components/ui/card";
 import API from "/src/api/api.js";
+import { toast } from "sonner"
 
-export default function VideoCallInterface({ meetingCode, getMeetingResponse }) {
+
+export default function VideoCallInterface({
+  meetingCode,
+  getMeetingResponse,
+}) {
   // State for UI controls
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [sidebarTab, setSidebarTab] = useState("chat");
@@ -96,9 +101,6 @@ export default function VideoCallInterface({ meetingCode, getMeetingResponse }) 
   const remoteStreamRefs = useRef({});
   const [localStream, setLocalStream] = useState(null);
   const videoRefs = useRef({});
-
-
-
 
   // State for chat
   const [chatMessages, setChatMessages] = useState([
@@ -142,23 +144,23 @@ export default function VideoCallInterface({ meetingCode, getMeetingResponse }) 
       isScreenSharing: false,
       isCurrentUser: true,
       isPinned: false,
-    }
+    },
   ]);
 
-  const [joinRequests, setJoinRequests] = useState([])
-  const [showJoinRequestPopup, setShowJoinRequestPopup] = useState(true)
-  const [currentPopupRequest, setCurrentPopupRequest] = useState(null)
+  const [joinRequests, setJoinRequests] = useState([]);
+  const [showJoinRequestPopup, setShowJoinRequestPopup] = useState(true);
+  const [currentPopupRequest, setCurrentPopupRequest] = useState(null);
 
   // Set the current popup request when join requests change
   useEffect(() => {
     if (joinRequests.length > 0 && !currentPopupRequest) {
-      setCurrentPopupRequest(joinRequests[0])
-      setShowJoinRequestPopup(true)
+      setCurrentPopupRequest(joinRequests[0]);
+      setShowJoinRequestPopup(true);
     } else if (joinRequests.length === 0) {
-      setCurrentPopupRequest(null)
-      setShowJoinRequestPopup(false)
+      setCurrentPopupRequest(null);
+      setShowJoinRequestPopup(false);
     }
-  }, [joinRequests])
+  }, [joinRequests]);
 
   // Refs
   const containerRef = useRef(null);
@@ -167,46 +169,52 @@ export default function VideoCallInterface({ meetingCode, getMeetingResponse }) 
 
   // Initializing socket.io connection
 
-    // Track if we've completed MediaSoup initialization
-    const [isMediaSoupInitialized, setIsMediaSoupInitialized] = useState(false);
+  // Track if we've completed MediaSoup initialization
+  const [isMediaSoupInitialized, setIsMediaSoupInitialized] = useState(false);
 
-    useEffect(() => {
-      (async () => {
-        try {
-          await mediaSoupService.connect();
-          await stompService.connect();
+  useEffect(() => {
+    (async () => {
+      try {
+        await mediaSoupService.connect();
+        await stompService.connect();
 
-          stompService.subscribe(`/topic/meeting/${meetingCode}`, handleMeetingMessage);
-          stompService.subscribe("/queue/meeting-updates", (data) => {
-            console.log("Meeting update received:", data);
-          });
+        stompService.subscribe(
+          `/topic/meeting/${meetingCode}`,
+          handleMeetingMessage
+        );
+        stompService.subscribe("/queue/meeting-updates", (data) => {
+          console.log("Meeting update received:", data);
+        });
 
-          stompService.subscribe(`/topic/room/${meetingCode}`, (data) => {
-            console.log("Room update received:", data);
-            if (data.type === 'PARTICIPANT_JOINED') {
-              console.log("Participant joined:", data);
-              data.isCurrentUser = data.userId === localStorage.userId;
-              setParticipants(prev => [...prev, data]);
+        stompService.subscribe(`/topic/room/${meetingCode}`, (data) => {
+          console.log("Room update received:", data);
+          if (data.type === "PARTICIPANT_JOINED") {
+            console.log("Participant joined:", data);
+            toast(`${data.name} joined`);
+            data.isCurrentUser = data.userId === localStorage.userId;
+            setParticipants((prev) => [...prev, data]);
+          }
+        });
+
+        if (getMeetingResponse.host) {
+          // Host-specific subscription for join requests
+          console.log("subscribing to join requests");
+          stompService.subscribe("/user/queue/join-requests", (data) => {
+            console.log("Join request received:", data);
+            if (data.type === "JOIN_REQUEST") {
+              setJoinRequests((prev) => [...prev, data]);
             }
           });
+        }
 
-          if (getMeetingResponse.host) {
-            // Host-specific subscription for join requests
-            console.log("subscribing to join requests")
-            stompService.subscribe('/user/queue/join-requests', (data)=>{
-              console.log('Join request received:', data);
-              if (data.type === 'JOIN_REQUEST') {
-                setJoinRequests(prev => [...prev, data]);
-              }
-            });
-          }
-
-          // Setup MediaSoup event handlers
-          mediaSoupService.on('newConsumer', ({ consumer, peerId, track, kind }) => {
+        // Setup MediaSoup event handlers
+        mediaSoupService.on(
+          "newConsumer",
+          ({ consumer, peerId, track, kind }) => {
             console.log(`New ${kind} consumer for peer ${peerId}`);
 
             // Update remoteStreams
-            setRemoteStreams(prev => {
+            setRemoteStreams((prev) => {
               const newStreams = { ...prev };
               if (!newStreams[peerId]) {
                 newStreams[peerId] = {};
@@ -214,166 +222,190 @@ export default function VideoCallInterface({ meetingCode, getMeetingResponse }) 
               newStreams[peerId][kind] = track;
               return newStreams;
             });
-          });
+          }
+        );
 
-          console.log("before mediaSoupService.setupSocketListeners");
-          await mediaSoupService.setupSocketListeners();
-          await joinRoom();
-          // Signal that MediaSoup is ready
-          setIsMediaSoupInitialized(true);
+        mediaSoupService.on("peerLeft", ({ peerId }) => {
+          console.log(`Handling peer left: ${peerId}`);
+          toast("left the meeting");
+          // Remove participant from the list
+          setParticipants((prevParticipants) =>
+              prevParticipants.filter(participant => participant.id !== peerId)
+          );
+        });
 
-        } catch (error) {
-          console.log(error);
-        }
-      })();
 
-      return () => {
-        // Disconnect from mediasoup and stomp
-        mediaSoupService.close();
-        stompService.disconnect();
+        console.log("before mediaSoupService.setupSocketListeners");
+        await mediaSoupService.setupSocketListeners();
+        await joinRoom();
+        // Signal that MediaSoup is ready
+        setIsMediaSoupInitialized(true);
+      } catch (error) {
+        console.log(error);
+      }
+    })();
 
-        // Clean up STOMP subscriptions
-        stompService.unsubscribe(`/topic/meeting/${meetingCode}`);
-        stompService.unsubscribe(`/topic/meeting/${meetingCode}/chat`);
-      };
+    return () => {
+      // Disconnect from mediasoup and stomp
+      mediaSoupService.close();
+      stompService.disconnect();
 
-    },[joinRequests]);
+      // Clean up STOMP subscriptions
+      stompService.unsubscribe(`/topic/meeting/${meetingCode}`);
+      stompService.unsubscribe(`/topic/meeting/${meetingCode}/chat`);
+    };
+  }, []);
   console.log("Participants after useEffect: ", participants);
 
+  useEffect(() => {
+    (async ()=> await joinRoom())();
+  },[joinRequests]);
+
   const joinRoom = async () => {
-    const { peerList } = await mediaSoupService.joinRoom(getMeetingResponse.mediaRoomId, localStorage.id, localStorage.name);
-    console.log("list of participants: ",peerList);
-    setParticipants(prev => {
-      return peerList.reduce((acc, newParticipant) => {
-        const existingIndex = acc.findIndex(p => p.userId === newParticipant.userId);
-        if (existingIndex !== -1) {
-          // Merge newParticipant with existing one
-          const updatedParticipant = {
-            ...acc[existingIndex],
-            ...newParticipant
-          };
-          acc[existingIndex] = updatedParticipant;
-        } else {
-          // Add new participant
-          acc.push(newParticipant);
-        }
-        return acc;
-      }, [...prev]);
+    const { peerList } = await mediaSoupService.joinRoom(
+      getMeetingResponse.mediaRoomId,
+      localStorage.id,
+      localStorage.name
+    );
+    console.log("list of participants: ", peerList);
+    setParticipants((prev) => {
+      return peerList.reduce(
+        (acc, newParticipant) => {
+          const existingIndex = acc.findIndex(
+            (p) => p.userId === newParticipant.userId
+          );
+          if (existingIndex !== -1) {
+            // Merge newParticipant with existing one
+            const updatedParticipant = {
+              ...acc[existingIndex],
+              ...newParticipant,
+            };
+            acc[existingIndex] = updatedParticipant;
+          } else {
+            // Add new participant
+            acc.push(newParticipant);
+          }
+          return acc;
+        },
+        [...prev]
+      );
     });
-  }
-    useEffect(() => {
-      const initializeLocalMedia = async () => {
-        try {
-          // Request access to camera and microphone
-          const stream = await navigator.mediaDevices.getUserMedia({
-            audio: true,
-            video: true
-          });
-
-          setLocalStream(stream);
-
-          // Display local video
-          if (localVideoRef.current) {
-            localVideoRef.current.srcObject = stream;
-          }
-
-          console.log("MediaSoup state:", {
-            socket: mediaSoupService.socket?.connected,
-            device: mediaSoupService.device?.loaded,
-            producerTransport: !!mediaSoupService.producerTransport,
-            consumerTransport: !!mediaSoupService.consumerTransport
-          });
+  };
 
 
-          // Produce tracks for MediaSoup
-          const audioTrack = stream.getAudioTracks()[0];
-          if (audioTrack) {
-            console.log("Producing audio track");
+  const initializeLocalMedia = async () => {
+      try {
+        // Request access to camera and microphone
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: true,
+          video: true,
+        });
 
-            await mediaSoupService.produceTrack(audioTrack, 'audio');
-          }
+        setLocalStream(stream);
 
-          const videoTrack = stream.getVideoTracks()[0];
-          if (videoTrack) {
-            console.log("Producing video track");
-
-            await mediaSoupService.produceTrack(videoTrack, 'video');
-          }
-
-          return stream;
-        } catch (error) {
-          console.error('Error accessing media devices:', error);
-          // Set camera and mic to off if access is denied
-          setIsCameraOff(true);
-          setIsMicMuted(true);
+        // Display local video
+        if (localVideoRef.current) {
+          localVideoRef.current.srcObject = stream;
         }
-      };
 
-      initializeLocalMedia();
+        console.log("MediaSoup state:", {
+          socket: mediaSoupService.socket?.connected,
+          device: mediaSoupService.device?.loaded,
+          producerTransport: !!mediaSoupService.producerTransport,
+          consumerTransport: !!mediaSoupService.consumerTransport,
+        });
 
-      // Cleanup function to stop all tracks
-      return () => {
-        if (localStream) {
-          localStream.getTracks().forEach(track => track.stop());
+        // Produce tracks for MediaSoup
+        const audioTrack = stream.getAudioTracks()[0];
+        if (audioTrack) {
+          console.log("Producing audio track", audioTrack);
+
+          await mediaSoupService.produceTrack(audioTrack, "audio");
         }
-      };
-    }, []);
 
+        const videoTrack = stream.getVideoTracks()[0];
+        if (videoTrack) {
+          console.log("Producing video track");
+
+          await mediaSoupService.produceTrack(videoTrack, "video");
+        }
+
+        return stream;
+      } catch (error) {
+        console.error("Error accessing media devices:", error);
+        // Set camera and mic to off if access is denied
+        setIsCameraOff(true);
+        setIsMicMuted(true);
+      }
+  };
+
+  useEffect(() => {
+      (async ()=> {if (isMediaSoupInitialized) await initializeLocalMedia();})();
+
+
+    // Cleanup function to stop all tracks
+    return () => {
+      if (localStream) {
+        localStream.getTracks().forEach((track) => track.stop());
+      }
+    };
+  }, [isMediaSoupInitialized]);
 
 
 
   const handleJoinRequest = async (id, isAccepted) => {
-    try{
-      if(isAccepted) {
-        setAcceptLoading(true)
-        await API.post(`/meeting/${meetingCode}/accept`, {"participantId": id});
-        setJoinRequests(prev => prev.filter(p => p.participantId !== id))
-      }else{
-        setRejectLoading(true)
-        await API.post(`/meeting/${meetingCode}/reject`, {"participantId": id});
+    try {
+      if (isAccepted) {
+        setAcceptLoading(true);
+        await API.post(`/meeting/${meetingCode}/accept`, { participantId: id });
+        setJoinRequests((prev) => prev.filter((p) => p.participantId !== id));
+      } else {
+        setRejectLoading(true);
+        await API.post(`/meeting/${meetingCode}/reject`, { participantId: id });
       }
-      setJoinRequests(prev => prev.filter(p => p.participantId !== id))
+      setJoinRequests((prev) => prev.filter((p) => p.participantId !== id));
 
       // If this was the current popup request, show the next one or hide popup
       if (currentPopupRequest && currentPopupRequest.participantId === id) {
-        const nextRequest = joinRequests.find((req) => req.participantId !== id)
-        setCurrentPopupRequest(nextRequest || null)
+        const nextRequest = joinRequests.find(
+          (req) => req.participantId !== id
+        );
+        setCurrentPopupRequest(nextRequest || null);
         if (!nextRequest) {
-          setShowJoinRequestPopup(false)
+          setShowJoinRequestPopup(false);
         }
       }
-    }catch (error) {
+    } catch (error) {
       console.log(error);
     } finally {
-      setAcceptLoading(false)
-      setRejectLoading(false)
-    }
-  }
-
-  const handleMeetingMessage = (data) => {
-    switch (data.type) {
-      case 'JOIN':
-        // Handle new participant joined
-        console.log('Participant joined:', data.user);
-        setParticipants(prev => [...prev, data.user]);
-        break;
-
-      case 'LEAVE':
-        // Handle participant left
-        console.log('Participant left:', data.userId);
-        setParticipants(prev => prev.filter(p => p.userId !== data.userId));
-        break;
-
-      case 'STATUS_CHANGE':
-        // Handle participant status change (mute, video off, etc.)
-        console.log('Status change:', data);
-        break;
-
-      default:
-        console.log('Unknown meeting message type:', data.type);
+      setAcceptLoading(false);
+      setRejectLoading(false);
     }
   };
 
+  const handleMeetingMessage = (data) => {
+    switch (data.type) {
+      case "JOIN":
+        // Handle new participant joined
+        console.log("Participant joined:", data.user);
+        setParticipants((prev) => [...prev, data.user]);
+        break;
+
+      case "LEAVE":
+        // Handle participant left
+        console.log("Participant left:", data.userId);
+        setParticipants((prev) => prev.filter((p) => p.userId !== data.userId));
+        break;
+
+      case "STATUS_CHANGE":
+        // Handle participant status change (mute, video off, etc.)
+        console.log("Status change:", data);
+        break;
+
+      default:
+        console.log("Unknown meeting message type:", data.type);
+    }
+  };
 
   // Handle sending a new message
   const handleSendMessage = (e) => {
@@ -576,13 +608,13 @@ export default function VideoCallInterface({ meetingCode, getMeetingResponse }) 
 
 
 
-// Add this useEffect to listen for new consumers (remote tracks)
+  // Add this useEffect to listen for new consumers (remote tracks)
   useEffect(() => {
     const handleNewConsumer = ({ consumer, peerId, track, kind }) => {
       console.log(`New ${kind} consumer for peer ${peerId}`, track);
 
       // Update remoteStreams
-      setRemoteStreams(prev => {
+      setRemoteStreams((prev) => {
         const newRemoteStreams = { ...prev };
 
         if (!newRemoteStreams[peerId]) {
@@ -594,17 +626,17 @@ export default function VideoCallInterface({ meetingCode, getMeetingResponse }) 
       });
 
       // Update participant media state
-      setParticipants(prev =>
-          prev.map(p => {
-            if (p.userId === peerId) {
-              if (kind === 'audio') {
-                return { ...p, isMuted: false };
-              } else if (kind === 'video') {
-                return { ...p, isCameraOff: false };
-              }
+      setParticipants((prev) =>
+        prev.map((p) => {
+          if (p.userId === peerId) {
+            if (kind === "audio") {
+              return { ...p, isMuted: false };
+            } else if (kind === "video") {
+              return { ...p, isCameraOff: false };
             }
-            return p;
-          })
+          }
+          return p;
+        })
       );
     };
 
@@ -612,7 +644,7 @@ export default function VideoCallInterface({ meetingCode, getMeetingResponse }) 
       console.log(`Consumer closed: ${kind} from peer ${peerId}`);
 
       // Update remoteStreams
-      setRemoteStreams(prev => {
+      setRemoteStreams((prev) => {
         const newRemoteStreams = { ...prev };
 
         if (newRemoteStreams[peerId]) {
@@ -630,32 +662,32 @@ export default function VideoCallInterface({ meetingCode, getMeetingResponse }) 
       });
 
       // Update participant media state
-      setParticipants(prev =>
-          prev.map(p => {
-            if (p.userId === peerId) {
-              if (kind === 'audio') {
-                return { ...p, isMuted: true };
-              } else if (kind === 'video') {
-                return { ...p, isCameraOff: true };
-              }
+      setParticipants((prev) =>
+        prev.map((p) => {
+          if (p.userId === peerId) {
+            if (kind === "audio") {
+              return { ...p, isMuted: true };
+            } else if (kind === "video") {
+              return { ...p, isCameraOff: true };
             }
-            return p;
-          })
+          }
+          return p;
+        })
       );
     };
 
     // Add event listeners to mediaSoupService
-    mediaSoupService.on('newConsumer', handleNewConsumer);
-    mediaSoupService.on('consumerClosed', handleConsumerClosed);
+    mediaSoupService.on("newConsumer", handleNewConsumer);
+    mediaSoupService.on("consumerClosed", handleConsumerClosed);
 
     // Cleanup
     return () => {
-      mediaSoupService.off('newConsumer', handleNewConsumer);
-      mediaSoupService.off('consumerClosed', handleConsumerClosed);
+      mediaSoupService.off("newConsumer", handleNewConsumer);
+      mediaSoupService.off("consumerClosed", handleConsumerClosed);
     };
   }, []);
 
-// Add this hook to handle ref assignment for video elements
+  // Add this hook to handle ref assignment for video elements
   useEffect(() => {
     // This will create or update video elements when remoteStreams changes
     Object.entries(remoteStreams).forEach(([peerId, tracks]) => {
@@ -663,10 +695,11 @@ export default function VideoCallInterface({ meetingCode, getMeetingResponse }) 
         const videoElement = videoRefs.current[peerId];
 
         // Check if the current video track is different
-        if (!videoElement.srcObject ||
-            !videoElement.srcObject.getVideoTracks()[0] ||
-            videoElement.srcObject.getVideoTracks()[0].id !== tracks.video.id) {
-
+        if (
+          !videoElement.srcObject ||
+          !videoElement.srcObject.getVideoTracks()[0] ||
+          videoElement.srcObject.getVideoTracks()[0].id !== tracks.video.id
+        ) {
           // Create a new MediaStream with video and audio tracks
           const stream = new MediaStream();
 
@@ -681,14 +714,13 @@ export default function VideoCallInterface({ meetingCode, getMeetingResponse }) 
           videoElement.srcObject = stream;
 
           // Play the stream
-          videoElement.play().catch(error => {
-            console.error('Error playing remote stream:', error);
+          videoElement.play().catch((error) => {
+            console.error("Error playing remote stream:", error);
           });
         }
       }
     });
   }, [remoteStreams]);
-
 
   // Function to toggle microphone
   const toggleMicrophone = () => {
@@ -701,7 +733,7 @@ export default function VideoCallInterface({ meetingCode, getMeetingResponse }) 
     }
   };
 
-// Function to toggle camera
+  // Function to toggle camera
   const toggleCamera = () => {
     if (localStream) {
       const videoTrack = localStream.getVideoTracks()[0];
@@ -712,58 +744,57 @@ export default function VideoCallInterface({ meetingCode, getMeetingResponse }) 
     }
   };
 
-// Function to toggle screen sharing
+  // Function to toggle screen sharing
   const toggleScreenSharing = async () => {
     if (isScreenSharing) {
       // Stop screen sharing
       try {
         // Find any existing screen share producer and close it
         mediaSoupService.producers.forEach((producer, id) => {
-          if (producer.appData && producer.appData.source === 'screen') {
+          if (producer.appData && producer.appData.source === "screen") {
             mediaSoupService.closeProducer(id);
           }
         });
 
         setIsScreenSharing(false);
       } catch (error) {
-        console.error('Error stopping screen sharing:', error);
+        console.error("Error stopping screen sharing:", error);
       }
     } else {
       // Start screen sharing
       try {
         const screenStream = await navigator.mediaDevices.getDisplayMedia({
           video: {
-            cursor: 'always',
-            displaySurface: 'monitor'
-          }
+            cursor: "always",
+            displaySurface: "monitor",
+          },
         });
 
         const screenTrack = screenStream.getVideoTracks()[0];
 
         // Handle user stopping sharing via browser UI
-        screenTrack.addEventListener('ended', () => {
+        screenTrack.addEventListener("ended", () => {
           setIsScreenSharing(false);
 
           // Find and close the screen producer
           mediaSoupService.producers.forEach((producer, id) => {
-            if (producer.appData && producer.appData.source === 'screen') {
+            if (producer.appData && producer.appData.source === "screen") {
               mediaSoupService.closeProducer(id);
             }
           });
         });
 
         // Create the producer with special appData
-        await mediaSoupService.produceTrack(screenTrack, 'video', { source: 'screen' });
+        await mediaSoupService.produceTrack(screenTrack, "video", {
+          source: "screen",
+        });
 
         setIsScreenSharing(true);
       } catch (error) {
-        console.error('Error starting screen sharing:', error);
+        console.error("Error starting screen sharing:", error);
       }
     }
   };
-
-
-
 
   // Effect to scroll chat to bottom on initial load
   useEffect(() => {
@@ -772,7 +803,7 @@ export default function VideoCallInterface({ meetingCode, getMeetingResponse }) 
         chatContainerRef.current.scrollHeight;
     }
   }, []);
-  console.log("---Video refs---: ",videoRefs.current);
+  console.log("---Video refs---: ", videoRefs.current);
   // Auto-hide controls after inactivity
   // useEffect(() => {
   //   let timeout;
@@ -853,8 +884,13 @@ export default function VideoCallInterface({ meetingCode, getMeetingResponse }) 
                         autoPlay
                         muted={mainParticipant.isCurrentUser}
                         ref={
-                          mainParticipant.isCurrentUser ? localVideoRef : el => { if (el) videoRefs.current[mainParticipant.userId] = el; }
-
+                          mainParticipant.isCurrentUser
+                            ? localVideoRef
+                            : (el) => {
+                                if (el)
+                                  videoRefs.current[mainParticipant.userId] =
+                                    el;
+                              }
                         }
                       />
                       <div className="absolute bottom-2 left-2 text-white bg-black/50 px-2 py-1 rounded flex items-center gap-2">
@@ -888,7 +924,6 @@ export default function VideoCallInterface({ meetingCode, getMeetingResponse }) 
               {/* Display up to 4 other participants */}
               <div className="flex-1 grid grid-cols-1 gap-1 overflow-hidden">
                 {otherParticipants.slice(0, 4).map((participant) => (
-
                   <div
                     key={participant.participantId}
                     className="relative bg-muted rounded-md overflow-hidden"
@@ -913,12 +948,18 @@ export default function VideoCallInterface({ meetingCode, getMeetingResponse }) 
                       </div>
                     ) : (
                       <>
-                        {console.log("participant: ",participant)}
+                        {console.log("participant: ", participant)}
                         <video
                           className="w-full h-full object-cover"
                           autoPlay
                           muted={participant.isCurrentUser}
-                          ref={participant.isCurrentUser ? localVideoRef : el => { if (el) videoRefs.current[participant.userId] = el; }
+                          ref={
+                            participant.isCurrentUser
+                              ? localVideoRef
+                              : (el) => {
+                                  if (el)
+                                    videoRefs.current[participant.userId] = el;
+                                }
                           }
                         />
                         <div className="absolute bottom-1 left-1 text-white bg-black/50 px-1 py-0.5 rounded text-sm flex items-center gap-1">
@@ -932,7 +973,9 @@ export default function VideoCallInterface({ meetingCode, getMeetingResponse }) 
 
                     {/* Pin/Unpin button for each participant */}
                     <button
-                      onClick={() => togglePinParticipant(participant.participantId)}
+                      onClick={() =>
+                        togglePinParticipant(participant.participantId)
+                      }
                       className="absolute top-1 right-1 p-1 bg-black/50 rounded-full text-white/80 hover:text-white hover:bg-black/70"
                       title={`${
                         participant.isPinned ? "Unpin" : "Pin"
@@ -992,12 +1035,17 @@ export default function VideoCallInterface({ meetingCode, getMeetingResponse }) 
                       </div>
                     </div>
                   ) : (
-
                     <video
                       className="w-full h-full object-cover"
                       autoPlay
                       muted={mainParticipant.isCurrentUser}
-                      ref={mainParticipant.isCurrentUser ? localVideoRef : el => { if (el) videoRefs.current[mainParticipant.userId] = el; }
+                      ref={
+                        mainParticipant.isCurrentUser
+                          ? localVideoRef
+                          : (el) => {
+                              if (el)
+                                videoRefs.current[mainParticipant.userId] = el;
+                            }
                       }
                     />
                   )}
@@ -1015,7 +1063,9 @@ export default function VideoCallInterface({ meetingCode, getMeetingResponse }) 
                   {/* Pin/Unpin button */}
                   <button
                     className="absolute top-2 right-2 bg-black/50 p-1.5 rounded-md hover:bg-black/70 transition-colors"
-                    onClick={() => togglePinParticipant(mainParticipant.participantId)}
+                    onClick={() =>
+                      togglePinParticipant(mainParticipant.participantId)
+                    }
                   >
                     {mainParticipant.isPinned ? (
                       <PinOff className="h-5 w-5 text-white" />
@@ -1031,7 +1081,9 @@ export default function VideoCallInterface({ meetingCode, getMeetingResponse }) 
                     <div
                       key={participant.participantId}
                       className="relative w-32 h-24 flex-shrink-0 bg-muted rounded-md overflow-hidden border-2 border-transparent hover:border-primary cursor-pointer transition-all"
-                      onClick={() => togglePinParticipant(participant.participantId)}
+                      onClick={() =>
+                        togglePinParticipant(participant.participantId)
+                      }
                     >
                       {participant.isCameraOff ? (
                         <div className="absolute inset-0 flex flex-col items-center justify-center">
@@ -1097,58 +1149,107 @@ export default function VideoCallInterface({ meetingCode, getMeetingResponse }) 
                       </div>
                     </div>
                   ) : (
-                      <>
-                      {console.log("participant: ",participant)}
-                        {console.log("remote streams: ",remoteStreams)}
-                    <video
-                      className=" h-full object-cover"
-                      autoPlay
-                      muted={participant.isCurrentUser}
-                      ref={el => {
-                        if (!el) return;
+                    <>
+                      {console.log("participant: ", participant)}
+                      {console.log("remote streams: ", remoteStreams)}
+                      <video
+                        className=" h-full object-cover"
+                        playsInline
+                        autoPlay
+                        id={participant.userId}
+                        muted={participant.isCurrentUser}
+                        ref={(el) => {
+                          if (!el) return;
 
-                        if (participant.isCurrentUser) {
-                          localVideoRef.current = el;
+                          if (participant.isCurrentUser) {
+                            localVideoRef.current = el;
 
-                          // Set srcObject for local video
-                          if (localStream && el.srcObject !== localStream) {
-                            console.log("Setting local stream to video element");
-                            el.srcObject = localStream;
-                          }
-                        } else {
-                          // Set ref for remote participant
-                          videoRefs.current[participant.userId] = el;
+                            // Set srcObject for local video
+                            if (localStream && el.srcObject !== localStream) {
+                              console.log(
+                                "Setting local stream to video element"
+                              );
+                              el.srcObject = localStream;
+                              el.play().catch(e => console.warn("Local video play failed:", e));
 
-                          // Check if we have a remote stream for this participant
-                          if (remoteStreams[participant.id]) {
-                            console.log("Found remote stream for", participant.name);
-
-                            // Create a new MediaStream with video and audio tracks
-                            const stream = new MediaStream();
-
-                            // Add video track if available
-                            if (remoteStreams[participant.id].video) {
-                              stream.addTrack(remoteStreams[participant.id].video);
-                            }
-
-                            // Add audio track if available
-                            if (remoteStreams[participant.id].audio) {
-                              stream.addTrack(remoteStreams[participant.id].audio);
-                            }
-
-                            // Set srcObject only if it's different
-                            if (el.srcObject !== stream) {
-                              console.log("Setting remote stream for", participant.name);
-                              el.srcObject = stream;
                             }
                           } else {
-                            console.log("No remote stream found for", participant.name);
-                          }
-                        }
-                      }}
+                            // Set ref for remote participant
+                            videoRefs.current[participant.userId] = el;
 
-                    />
-                      </>
+                            // Check if we have a remote stream for this participant
+                            if (remoteStreams[participant.id]) {
+                              console.log(
+                                "Found remote stream for",
+                                participant.name
+                              );
+
+                              // Create a new MediaStream with video and audio tracks
+                              const stream = new MediaStream();
+
+                              // Add video track if available
+                              if (remoteStreams[participant.id].video) {
+                                stream.addTrack(
+                                  remoteStreams[participant.id].video
+                                );
+                                console.log("Added video track");
+                              }
+
+                              // Add audio track if available
+                              if (remoteStreams[participant.id].audio) {
+                                stream.addTrack(
+                                  remoteStreams[participant.id].audio
+                                );
+                                console.log("Added audio track");
+                              }
+
+                              console.log("Check mediastream: ", stream.getVideoTracks());
+                              // Set srcObject only if it's different
+                              if (el.srcObject !== stream) {
+                                console.log(
+                                  "Setting remote stream for",
+                                  participant.name
+                                );
+                                el.srcObject = stream;
+
+                                el.playsInline = true;
+                                el.controls = false; // optional, but often helps with debugging
+
+                                // Force play with a delay
+                                setTimeout(() => {
+                                  el.play().catch(error => {
+                                    console.error("Error auto-playing video:", error);
+
+                                    // Create a play button if autoplay fails
+                                    const playButton = document.createElement('button');
+                                    playButton.textContent = 'Click to play video';
+                                    playButton.style.position = 'absolute';
+                                    playButton.style.zIndex = '10';
+                                    playButton.style.top = '50%';
+                                    playButton.style.left = '50%';
+                                    playButton.style.transform = 'translate(-50%, -50%)';
+                                    playButton.style.padding = '10px';
+
+                                    playButton.onclick = () => {
+                                      el.play();
+                                      playButton.remove();
+                                    };
+
+                                    el.parentNode.appendChild(playButton);
+                                  });
+                                }, 500);
+
+                              }
+                            } else {
+                              console.log(
+                                "No remote stream found for",
+                                participant.name
+                              );
+                            }
+                          }
+                        }}
+                      />
+                    </>
                   )}
 
                   {/* Participant info overlay */}
@@ -1164,7 +1265,9 @@ export default function VideoCallInterface({ meetingCode, getMeetingResponse }) 
                   {/* Pin/Unpin button */}
                   <button
                     className="absolute top-2 right-2 bg-black/50 p-1.5 rounded-md hover:bg-black/70 transition-colors"
-                    onClick={() => togglePinParticipant(participant.participantId)}
+                    onClick={() =>
+                      togglePinParticipant(participant.participantId)
+                    }
                   >
                     {participant.isPinned ? (
                       <PinOff className="h-5 w-5 text-white" />
@@ -1301,50 +1404,66 @@ export default function VideoCallInterface({ meetingCode, getMeetingResponse }) 
 
                     {/* Join Requests Section */}
                     {joinRequests.length > 0 && (
-                        <div className="mb-4">
-                          <div className="flex items-center justify-between mb-2">
-                            <h4 className="text-sm font-medium text-destructive flex items-center">
-                              <Bell className="h-4 w-4 mr-1" />
-                              Join Requests ({joinRequests.length})
-                            </h4>
-                          </div>
-                          <div className="space-y-2 bg-muted/30 p-2 rounded-md">
-                            {joinRequests.map((request) => (
-                                <div
-                                    key={request.participantId}
-                                    className="flex items-center justify-between p-2 rounded-md bg-background"
-                                >
-                                  <div className="flex items-center space-x-2">
-                                    <Avatar className="h-8 w-8">
-                                      <AvatarFallback>{request.userName[0]}</AvatarFallback>
-                                    </Avatar>
-                                    <div>
-                                      <span className="font-medium text-sm">{request.userName}</span>
-                                      <p className="text-xs text-muted-foreground">{formatTimestamp(request.timestamp)}</p>
-                                    </div>
-                                  </div>
-                                  <div className="flex gap-1">
-                                    <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                                        onClick={() => handleJoinRequest(request.participantId, false)}
-                                    >
-                                      <X className="h-4 w-4" />
-                                    </Button>
-                                    <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="h-8 w-8 text-green-500 hover:text-green-500 hover:bg-green-500/10"
-                                        onClick={() => handleJoinRequest(request.participantId, true)}
-                                    >
-                                      <Check className="h-4 w-4" />
-                                    </Button>
-                                  </div>
-                                </div>
-                            ))}
-                          </div>
+                      <div className="mb-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <h4 className="text-sm font-medium text-destructive flex items-center">
+                            <Bell className="h-4 w-4 mr-1" />
+                            Join Requests ({joinRequests.length})
+                          </h4>
                         </div>
+                        <div className="space-y-2 bg-muted/30 p-2 rounded-md">
+                          {joinRequests.map((request) => (
+                            <div
+                              key={request.participantId}
+                              className="flex items-center justify-between p-2 rounded-md bg-background"
+                            >
+                              <div className="flex items-center space-x-2">
+                                <Avatar className="h-8 w-8">
+                                  <AvatarFallback>
+                                    {request.userName[0]}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div>
+                                  <span className="font-medium text-sm">
+                                    {request.userName}
+                                  </span>
+                                  <p className="text-xs text-muted-foreground">
+                                    {formatTimestamp(request.timestamp)}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="flex gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                  onClick={() =>
+                                    handleJoinRequest(
+                                      request.participantId,
+                                      false
+                                    )
+                                  }
+                                >
+                                  <X className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 text-green-500 hover:text-green-500 hover:bg-green-500/10"
+                                  onClick={() =>
+                                    handleJoinRequest(
+                                      request.participantId,
+                                      true
+                                    )
+                                  }
+                                >
+                                  <Check className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
                     )}
 
                     <div className="space-y-3">
@@ -1408,7 +1527,9 @@ export default function VideoCallInterface({ meetingCode, getMeetingResponse }) 
                             <DropdownMenuContent align="end">
                               <DropdownMenuItem
                                 onClick={() =>
-                                  togglePinParticipant(participant.participantId)
+                                  togglePinParticipant(
+                                    participant.participantId
+                                  )
                                 }
                               >
                                 {participant.isPinned ? (
@@ -1469,7 +1590,10 @@ export default function VideoCallInterface({ meetingCode, getMeetingResponse }) 
                     variant={isMicMuted ? "destructive" : "ghost"}
                     size="icon"
                     className="rounded-full h-12 w-12"
-                    onClick={() => setIsMicMuted(!isMicMuted)}
+                    onClick={() => {
+                      // setIsMicMuted(!isMicMuted);
+                      toggleMicrophone();
+                    }}
                   >
                     {isMicMuted ? (
                       <MicOff className="h-5 w-5" />
@@ -1492,7 +1616,10 @@ export default function VideoCallInterface({ meetingCode, getMeetingResponse }) 
                     variant={isCameraOff ? "destructive" : "ghost"}
                     size="icon"
                     className="rounded-full h-12 w-12"
-                    onClick={() => setIsCameraOff(!isCameraOff)}
+                    onClick={() => {
+                      // setIsCameraOff(!isCameraOff);
+                      toggleCamera();
+                    }}
                   >
                     {isCameraOff ? (
                       <VideoOff className="h-5 w-5" />
@@ -1865,47 +1992,59 @@ export default function VideoCallInterface({ meetingCode, getMeetingResponse }) 
 
       {/* Join Request Popup */}
       {showJoinRequestPopup && currentPopupRequest && (
-          <div className="fixed bottom-4 right-4 z-50 animate-in slide-in-from-right-10 duration-300">
-            <Card className="w-80 shadow-lg border-l-4 border-l-primary">
-              <div className="p-4">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-3">
-                    <Avatar>
-                      <AvatarFallback>{currentPopupRequest.userName[0]}</AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <h4 className="font-medium text-sm">Join Request</h4>
-                      <p className="text-sm">{currentPopupRequest.userName} wants to join</p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {formatTimestamp(currentPopupRequest.timestamp)}
-                      </p>
-                    </div>
+        <div className="fixed bottom-4 right-4 z-50 animate-in slide-in-from-right-10 duration-300">
+          <Card className="w-80 shadow-lg border-l-4 border-l-primary">
+            <div className="p-4">
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-3">
+                  <Avatar>
+                    <AvatarFallback>
+                      {currentPopupRequest.userName[0]}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <h4 className="font-medium text-sm">Join Request</h4>
+                    <p className="text-sm">
+                      {currentPopupRequest.userName} wants to join
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {formatTimestamp(currentPopupRequest.timestamp)}
+                    </p>
                   </div>
-                  <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-6 w-6 -mt-1 -mr-1"
-                      onClick={() => setShowJoinRequestPopup(false)}
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
                 </div>
-                <div className="flex gap-2 mt-3">
-                  <Button
-                      variant="outline"
-                      className="flex-1"
-                      onClick={() => handleJoinRequest(currentPopupRequest.participantId, false)}
-                      disabled={isLeavingCall}
-                  >
-                    {rejectLoading ? "Rejecting..." : "Reject"}
-                  </Button>
-                  <Button className="flex-1" onClick={() => handleJoinRequest(currentPopupRequest.participantId, true)} disbled={acceptLoading}>
-                    {acceptLoading ? "Accepting..." : "Accept"}
-                  </Button>
-                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6 -mt-1 -mr-1"
+                  onClick={() => setShowJoinRequestPopup(false)}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
               </div>
-            </Card>
-          </div>
+              <div className="flex gap-2 mt-3">
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() =>
+                    handleJoinRequest(currentPopupRequest.participantId, false)
+                  }
+                  disabled={isLeavingCall}
+                >
+                  {rejectLoading ? "Rejecting..." : "Reject"}
+                </Button>
+                <Button
+                  className="flex-1"
+                  onClick={() =>
+                    handleJoinRequest(currentPopupRequest.participantId, true)
+                  }
+                  disbled={acceptLoading}
+                >
+                  {acceptLoading ? "Accepting..." : "Accept"}
+                </Button>
+              </div>
+            </div>
+          </Card>
+        </div>
       )}
 
       {/* Recording Indicator */}
