@@ -4,6 +4,9 @@ const express = require("express");
 const http = require("http");
 const socketIO = require("socket.io");
 const cors = require("cors");
+const axios = require('axios');
+
+let discoveredIp = null;
 
 // Initialize Express app
 const app = express();
@@ -13,7 +16,11 @@ app.use(express.json());
 const server = http.createServer(app);
 const io = socketIO(server, {
   cors: {
-    origin: "*",
+    origin: [
+      "http://localhost:5173",
+      "https://nex-meet-theta.vercel.app",
+      "https://nexmeet-spring-boot-service.onrender.com",
+    ],
     methods: ["GET", "POST"],
     credentials: true,
   },
@@ -51,8 +58,24 @@ const mediaCodecs = [
 // Map of rooms and their routers
 const rooms = new Map();
 
+async function getPublicIp() {
+  try {
+    const response = await axios.get('https://api.ipify.org?format=json');
+    return response.data.ip;
+  } catch (error) {
+    console.error('Failed to get public IP:', error);
+    return null;
+  }
+}
+
+
+
 // Start MediaSoup worker
 async function startMediasoup() {
+  discoveredIp = await getPublicIp();
+  console.log(`Using public IP: ${discoveredIp}`);
+
+
   worker = await mediasoup.createWorker({
     logLevel: "debug",
     logTags: [
@@ -176,7 +199,7 @@ io.on("connection", async (socket) => {
         listenIps: [
           {
             ip: "0.0.0.0",
-            announcedIp: process.env.ANNOUNCED_IP || "127.0.0.1",
+            announcedIp: discoveredIp || process.env.ANNOUNCED_IP || "127.0.0.1",
           },
         ],
         enableUdp: true,
