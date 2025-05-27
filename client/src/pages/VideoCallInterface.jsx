@@ -186,13 +186,14 @@ export default function VideoCallInterface({
           console.log("Meeting update received:", data);
         });
 
-        stompService.subscribe(`/topic/room/${meetingCode}`, (data) => {
+        stompService.subscribe(`/topic/room/${meetingCode}`, async (data) => {
           console.log("Room update received:", data);
           if (data.type === "PARTICIPANT_JOINED") {
             console.log("Participant joined:", data);
             toast(`${data.name} joined`);
             data.isCurrentUser = data.userId === localStorage.userId;
-            setParticipants((prev) => [...prev, data]);
+            // setParticipants((prev) => [...prev, data]);
+            await joinRoom();
           }
         });
 
