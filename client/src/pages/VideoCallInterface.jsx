@@ -236,7 +236,7 @@ export default function VideoCallInterface({
 
 
         console.log("before mediaSoupService.setupSocketListeners");
-        await mediaSoupService.setupSocketListeners();
+        // await mediaSoupService.setupSocketListeners();
         await joinRoom();
         // Signal that MediaSoup is ready
         setIsMediaSoupInitialized(true);
@@ -479,133 +479,6 @@ export default function VideoCallInterface({
       minute: "2-digit",
     }).format(timestamp);
   };
-
-  // // Effect to simulate local video
-  // useEffect(() => {
-  //   let stream;
-  //
-  //   const startCamera = async () => {
-  //     try {
-  //       stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: {
-  //           width: { ideal: 1280 },
-  //           height: { ideal: 720 }
-  //         }
-  //       });
-  //       if (localVideoRef.current) {
-  //         localVideoRef.current.srcObject = stream;
-  //         setVideoStream(stream);
-  //       }
-  //
-  //       if (mediaSoupService.connected) {
-  //         // Create audio producer
-  //         const audioTrack = stream.getAudioTracks()[0];
-  //         if (audioTrack) {
-  //           await mediaSoupService.produceTrack(audioTrack, 'audio');
-  //         }
-  //
-  //         // Create video producer
-  //         const videoTrack = stream.getVideoTracks()[0];
-  //         if (videoTrack) {
-  //           await mediaSoupService.produceTrack(videoTrack, 'video');
-  //         }
-  //       }
-  //
-  //       } catch (err) {
-  //       console.error("Error accessing camera:", err);
-  //     }
-  //   };
-  //
-  //   if (!isCameraOff) {
-  //     startCamera();
-  //   }
-  //
-  //   return () => {
-  //     if (stream) {
-  //       stream.getTracks().forEach((track) => track.stop());
-  //     }
-  //   };
-  // }, []);
-  //
-  //
-  // // Set up handlers for remote media
-  // useEffect(() => {
-  //   // Handle new consumers (remote streams)
-  //   const handleNewConsumer = async (consumer) => {
-  //     const { id, appData, kind, track } = consumer;
-  //     const peerId = appData.peerId;
-  //
-  //     console.log(`New ${kind} consumer for peer ${peerId}`);
-  //
-  //     // Create a new stream if we don't have one for this peer yet
-  //     let stream = remoteStreams[peerId];
-  //     if (!stream) {
-  //       stream = new MediaStream();
-  //       setRemoteStreams(prev => ({
-  //         ...prev,
-  //         [peerId]: stream
-  //       }));
-  //     }
-  //
-  //     // Add track to the stream
-  //     stream.addTrack(track);
-  //
-  //     // Store the consumer to manage it later
-  //     consumer.on('trackended', () => {
-  //       console.log(`Remote ${kind} track ended`);
-  //     });
-  //
-  //     consumer.on('transportclose', () => {
-  //       console.log(`Transport closed for consumer ${id}`);
-  //     });
-  //
-  //     // Resume the consumer
-  //     try {
-  //       await consumer.resume();
-  //     } catch (error) {
-  //       console.error('Error resuming consumer:', error);
-  //     }
-  //   };
-  //
-  //   // Handle consumer closed
-  //   const handleConsumerClosed = (consumer) => {
-  //     const { appData, kind } = consumer;
-  //     const peerId = appData.peerId;
-  //
-  //     console.log(`Consumer closed: ${kind} from peer ${peerId}`);
-  //
-  //     // If we have the stream, remove the track
-  //     const stream = remoteStreams[peerId];
-  //     if (stream) {
-  //       // Remove the specific track type
-  //       stream.getTracks().forEach(track => {
-  //         if (track.kind === kind) {
-  //           stream.removeTrack(track);
-  //           track.stop();
-  //         }
-  //       });
-  //
-  //       // If no tracks remain, remove the stream
-  //       if (stream.getTracks().length === 0) {
-  //         setRemoteStreams(prev => {
-  //           const newState = { ...prev };
-  //           delete newState[peerId];
-  //           return newState;
-  //         });
-  //       }
-  //     }
-  //   };
-  //
-  //   // Add event listeners to MediaSoup
-  //   mediaSoupService.on('newConsumer', handleNewConsumer);
-  //   mediaSoupService.on('consumerClosed', handleConsumerClosed);
-  //
-  //   return () => {
-  //     // Remove event listeners
-  //     mediaSoupService.off('newConsumer', handleNewConsumer);
-  //     mediaSoupService.off('consumerClosed', handleConsumerClosed);
-  //   };
-  // }, [remoteStreams]);
-
 
 
   // Add this useEffect to listen for new consumers (remote tracks)
