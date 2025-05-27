@@ -235,9 +235,22 @@ export default function VideoCallInterface({
           );
         });
 
+        mediaSoupService.on("peerJoined", (data) => {
+          console.log(`Handling peer joined: ${data}`);
+          toast("left the meeting");
+          // Remove participant from the list
+          if (data) {
+          setParticipants((prev) => {const exists = prev.some((item) => item.userId === data.userId);
+            if (!exists) {
+              return [...prev, data]; // Add new if not exists
+            }
+            return prev; });
+          }
+        });
 
         console.log("before mediaSoupService.setupSocketListeners");
         // await mediaSoupService.setupSocketListeners();
+
         await joinRoom();
         // Signal that MediaSoup is ready
         setIsMediaSoupInitialized(true);
@@ -553,6 +566,7 @@ export default function VideoCallInterface({
     // Add event listeners to mediaSoupService
     mediaSoupService.on("newConsumer", handleNewConsumer);
     mediaSoupService.on("consumerClosed", handleConsumerClosed);
+
 
     // Cleanup
     return () => {
