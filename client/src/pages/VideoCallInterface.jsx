@@ -136,7 +136,7 @@ export default function VideoCallInterface({
   // State for participants
   const [participants, setParticipants] = useState([
     {
-      participantId: 1,
+      userId: localStorage.id,
       name: localStorage.name,
       initials: localStorage.name[0],
       isMuted: false,
@@ -189,8 +189,8 @@ export default function VideoCallInterface({
         stompService.subscribe(`/topic/room/${meetingCode}`, async (data) => {
           console.log("Room update received:", data);
           if (data.type === "PARTICIPANT_JOINED") {
-            console.log("Participant joined:", data);
-            toast(`${data.name} joined`);
+            // console.log("Participant joined:", data);
+            toast.success(`${data.name} joined`);
             data.isCurrentUser = data.userId === localStorage.userId;
             // setParticipants((prev) => [...prev, data]);
             await joinRoom();
@@ -226,18 +226,18 @@ export default function VideoCallInterface({
           }
         );
 
-        mediaSoupService.on("peerLeft", ({ peerId }) => {
-          console.log(`Handling peer left: ${peerId}`);
-          toast("left the meeting");
+        mediaSoupService.on("peerLeft", (data) => {
+          console.log(`Handling peer left: { peerId: ${JSON.stringify(data)}`);
+          console.log("++++participants: ", participants);
+          toast.info(`${data.name} left the meeting`);
           // Remove participant from the list
-          setParticipants((prevParticipants) =>
-              prevParticipants.filter(participant => participant.id !== peerId)
-          );
+          removeParticipant(data.peerId);
+
         });
 
         mediaSoupService.on("peerJoined", (data) => {
           console.log(`Handling peer joined: ${data}`);
-          toast("left the meeting");
+          toast(`${data.name} joined`);
           // Remove participant from the list
           if (data) {
           setParticipants((prev) => {const exists = prev.some((item) => item.userId === data.userId);
@@ -269,7 +269,16 @@ export default function VideoCallInterface({
       stompService.unsubscribe(`/topic/meeting/${meetingCode}/chat`);
     };
   }, []);
-  console.log("Participants after useEffect: ", participants);
+  // console.log("Participants after useEffect: ", participants);
+
+  const removeParticipant = (id) => {
+    console.log("removeParticipant: ", participants);
+
+    setParticipants((prevParticipants) =>
+        prevParticipants.filter(participant => participant.id !== id)
+    );
+
+  }
 
   useEffect(() => {
     (async ()=> await joinRoom())();
@@ -306,7 +315,7 @@ export default function VideoCallInterface({
     });
   };
 
-
+  console.log("Participants after use join room: ", participants);
   const initializeLocalMedia = async () => {
       try {
         // Request access to camera and microphone
@@ -428,8 +437,8 @@ export default function VideoCallInterface({
 
     const newChatMessage = {
       id: chatMessages.length + 1,
-      sender: "You",
-      initials: "YO",
+      sender: localStorage.name,
+      initials: localStorage.name[0],
       message: newMessage,
       timestamp: new Date(),
       isCurrentUser: true,
@@ -564,7 +573,7 @@ export default function VideoCallInterface({
     };
 
     // Add event listeners to mediaSoupService
-    mediaSoupService.on("newConsumer", handleNewConsumer);
+    // mediaSoupService.on("newConsumer", handleNewConsumer);
     mediaSoupService.on("consumerClosed", handleConsumerClosed);
 
 
@@ -768,7 +777,7 @@ export default function VideoCallInterface({
                   ) : (
                     <>
                       <video
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-cover transform scale-x-[-1]"
                         autoPlay
                         muted={mainParticipant.isCurrentUser}
                         ref={
@@ -838,7 +847,7 @@ export default function VideoCallInterface({
                       <>
                         {console.log("participant: ", participant)}
                         <video
-                          className="w-full h-full object-cover"
+                          className="w-full h-full object-cover transform scale-x-[-1]"
                           autoPlay
                           muted={participant.isCurrentUser}
                           ref={
@@ -924,7 +933,7 @@ export default function VideoCallInterface({
                     </div>
                   ) : (
                     <video
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-cover transform scale-x-[-1]"
                       autoPlay
                       muted={mainParticipant.isCurrentUser}
                       ref={
@@ -1041,7 +1050,7 @@ export default function VideoCallInterface({
                       {console.log("participant: ", participant)}
                       {console.log("remote streams: ", remoteStreams)}
                       <video
-                        className=" h-full object-cover"
+                        className=" h-full object-cover transform scale-x-[-1]"
                         playsInline
                         autoPlay
                         id={participant.userId}
@@ -1066,7 +1075,7 @@ export default function VideoCallInterface({
                             videoRefs.current[participant.userId] = el;
 
                             // Check if we have a remote stream for this participant
-                            if (remoteStreams[participant.id]) {
+                            if (remoteStreams[participant.peerId] || remoteStreams[participant.id]) {
                               console.log(
                                 "Found remote stream for",
                                 participant.name
@@ -1076,17 +1085,17 @@ export default function VideoCallInterface({
                               const stream = new MediaStream();
 
                               // Add video track if available
-                              if (remoteStreams[participant.id].video) {
+                              if (remoteStreams[participant.peerId]?.video || remoteStreams[participant.id].video) {
                                 stream.addTrack(
-                                  remoteStreams[participant.id].video
+                                  remoteStreams[participant.peerId]?.video || remoteStreams[participant.id].video
                                 );
                                 console.log("Added video track");
                               }
 
                               // Add audio track if available
-                              if (remoteStreams[participant.id].audio) {
+                              if (remoteStreams[participant.peerId]?.audio || remoteStreams[participant.id].audio) {
                                 stream.addTrack(
-                                  remoteStreams[participant.id].audio
+                                  remoteStreams[participant.peerId]?.audio || remoteStreams[participant.id].audio
                                 );
                                 console.log("Added audio track");
                               }
@@ -1104,28 +1113,28 @@ export default function VideoCallInterface({
                                 el.controls = false; // optional, but often helps with debugging
 
                                 // Force play with a delay
-                                setTimeout(() => {
-                                  el.play().catch(error => {
-                                    console.error("Error auto-playing video:", error);
-
-                                    // Create a play button if autoplay fails
-                                    const playButton = document.createElement('button');
-                                    playButton.textContent = 'Click to play video';
-                                    playButton.style.position = 'absolute';
-                                    playButton.style.zIndex = '10';
-                                    playButton.style.top = '50%';
-                                    playButton.style.left = '50%';
-                                    playButton.style.transform = 'translate(-50%, -50%)';
-                                    playButton.style.padding = '10px';
-
-                                    playButton.onclick = () => {
-                                      el.play();
-                                      playButton.remove();
-                                    };
-
-                                    el.parentNode.appendChild(playButton);
-                                  });
-                                }, 500);
+                                // setTimeout(() => {
+                                //   el.play().catch(error => {
+                                //     console.error("Error auto-playing video:", error);
+                                //
+                                //     // Create a play button if autoplay fails
+                                //     const playButton = document.createElement('button');
+                                //     playButton.textContent = 'Click to play video';
+                                //     playButton.style.position = 'absolute';
+                                //     playButton.style.zIndex = '10';
+                                //     playButton.style.top = '50%';
+                                //     playButton.style.left = '50%';
+                                //     playButton.style.transform = 'translate(-50%, -50%)';
+                                //     playButton.style.padding = '10px';
+                                //
+                                //     playButton.onclick = () => {
+                                //       el.play();
+                                //       playButton.remove();
+                                //     };
+                                //
+                                //     el.parentNode.appendChild(playButton);
+                                //   });
+                                // }, 500);
 
                               }
                             } else {
@@ -1797,7 +1806,7 @@ export default function VideoCallInterface({
                               </div>
                             ) : (
                               <video
-                                className="w-full h-full object-cover rounded-md"
+                                className="w-full h-full object-cover rounded-md transform scale-x-[-1]"
                                 autoPlay
                                 muted
                               />
