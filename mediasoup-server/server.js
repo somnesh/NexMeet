@@ -304,6 +304,8 @@ io.on("connection", async (socket) => {
         // Notify other peers in the room
         socket.to(peerData.roomId).emit("peerLeft", {
           peerId: socket.id,
+          userId: peerData.userId,
+          name: peerData.name,
         });
 
         // If room is empty, clean it up
