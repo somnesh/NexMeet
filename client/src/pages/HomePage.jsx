@@ -209,6 +209,7 @@ export default function HomePage() {
                         <div className="flex-1">
                           <Input
                             type="text"
+                            autoFocus
                             placeholder="Enter meeting code (e.g., abc-mnop-xyz or abcmnopxyz)"
                             value={meetingCode}
                             onChange={(e) => setMeetingCode(e.target.value)}
