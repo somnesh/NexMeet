@@ -216,6 +216,7 @@ export default function AuthPage() {
                       type="email"
                       placeholder="name@example.com"
                       className="pl-10"
+                      autoFocus
                       value={signInEmail}
                       onChange={(e) => setSignInEmail(e.target.value)}
                     />
@@ -326,6 +327,7 @@ export default function AuthPage() {
                     <Input
                       id="signup-name"
                       type="text"
+                      autoFocus
                       placeholder="name"
                       className="pl-10"
                       value={signUpName}
