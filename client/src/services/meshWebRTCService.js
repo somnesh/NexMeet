@@ -55,13 +55,14 @@ class MeshWebRTCService extends EventEmitter {
         });
 
         // Handle peer leaving
-        this.socket.on("peerLeft", ({ peerId }) => {
-            console.log(`Peer left: ${peerId}`);
-            this.emit("peerLeft", { peerId });
+        this.socket.on("peerLeft", (data) => {
+            console.log(`Peer left: ${data.peerId}`);
+            this.emit("peerLeft", data);
 
             // Clean up peer connection
-            this.closePeerConnection(peerId);
+            this.closePeerConnection(data.peerId);
         });
+
 
         // Handle WebRTC signaling
         this.socket.on("webrtc-offer", async ({ fromPeerId, offer }) => {
