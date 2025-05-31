@@ -320,6 +320,7 @@ export default function HomePage() {
       setOpen(true);
     } catch (error) {
       console.error("Error viewing summary:", error);
+      throw new Error("Failed to fetch meeting summary");
     }
   };
 
