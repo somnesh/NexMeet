@@ -1,5 +1,3 @@
-"use client";
-
 import { useState } from "react";
 import {
   Eye,
@@ -19,6 +17,7 @@ import { cn } from "@/lib/utils";
 import Header from "../components/Header";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 
 export default function AuthPage() {
   // State for sign in form
@@ -92,7 +91,7 @@ export default function AuthPage() {
   };
 
   // Handle sign up
-  const handleSignUp = (e) => {
+  const handleSignUp = async (e) => {
     e.preventDefault();
     setSignUpError("");
 
@@ -122,16 +121,45 @@ export default function AuthPage() {
       return;
     }
 
-    // Simulate sign up process
     setIsSigningUp(true);
+    toast.promise(signUpAPI(signUpName, signUpEmail, signUpPassword), {
+      loading: "Creating account...",
+      success: "Account created successfully!",
+      error: (error) => {
+        return error.response?.data?.msg || "An error occurred";
+      },
+    });
+  };
 
-    // This is where you would connect to your authentication service
-    setTimeout(() => {
-      // Simulate successful sign up
-      console.log("Signed up with:", signUpEmail, signUpPassword);
+  const signUpAPI = async (name, email, password) => {
+    try {
+      const response = await axios.post(
+        `${API_URL}/auth/register`,
+        {
+          name,
+          email,
+          password,
+        },
+        { withCredentials: true }
+      );
+
+      console.log(response.data);
+      localStorage.setItem("avatar", response.data.avatar);
+      localStorage.setItem("id", response.data.id);
+      localStorage.setItem("name", response.data.name);
+      localStorage.setItem("email", response.data.email);
+      if (response.status === 201) {
+        navigate("/");
+      }
+    } catch (error) {
+      if (error.response && error.response.status === 409) {
+        setSignUpError("Email already exists");
+      } else {
+        setSignUpError("An error occurred while signing up");
+      }
+    } finally {
       setIsSigningUp(false);
-      // Redirect or update UI state after successful sign up
-    }, 1500);
+    }
   };
 
   // Handle sign in with Google
