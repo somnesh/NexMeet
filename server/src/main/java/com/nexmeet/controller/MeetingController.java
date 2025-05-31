@@ -1,23 +1,35 @@
 package com.nexmeet.controller;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nexmeet.config.WebRTCConfig;
 import com.nexmeet.dto.*;
-import com.nexmeet.model.Meeting;
-import com.nexmeet.model.User;
+import com.nexmeet.model.*;
+import com.nexmeet.repository.*;
+import com.nexmeet.service.ExternalApiService;
 import com.nexmeet.service.MediaSoupService;
 import com.nexmeet.service.MeetingService;
 import com.nexmeet.util.JwtUtil;
+
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.core.io.Resource;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.util.Map;
-import java.util.UUID;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/meeting")
@@ -27,16 +39,33 @@ public class MeetingController {
     private final MediaSoupService mediaSoupService;
     private final SimpMessagingTemplate messagingTemplate;
     private final WebRTCConfig webRTCConfig;
+    private final UserRepository userRepository;
+    private final MeetingRepository meetingRepository;
+    private final RecordingRepository recordingRepository;
+    private final TranscriptionRepository transcriptionRepository;
+    private final SummaryRepository summaryRepository;
+    private final ExternalApiService externalApiService;
+    private final ObjectMapper objectMapper;
 
-    public MeetingController(MeetingService meetingService, MediaSoupService mediaSoupService, SimpMessagingTemplate messagingTemplate, WebRTCConfig webRTCConfig) {
+    public MeetingController(MeetingService meetingService, MediaSoupService mediaSoupService,
+                             SimpMessagingTemplate messagingTemplate, WebRTCConfig webRTCConfig, UserRepository userRepository,
+                             MeetingRepository meetingRepository, RecordingRepository recordingRepository, TranscriptionRepository transcriptionRepository, SummaryRepository summaryRepository, ExternalApiService externalApiService, ObjectMapper objectMapper) {
         this.meetingService = meetingService;
         this.mediaSoupService = mediaSoupService;
         this.messagingTemplate = messagingTemplate;
         this.webRTCConfig = webRTCConfig;
+        this.userRepository = userRepository;
+        this.meetingRepository = meetingRepository;
+        this.recordingRepository = recordingRepository;
+        this.transcriptionRepository = transcriptionRepository;
+        this.summaryRepository = summaryRepository;
+        this.externalApiService = externalApiService;
+        this.objectMapper = objectMapper;
     }
 
     @PostMapping
-    public CreateMeetingResponse createMeeting(CreateMeetingRequest request, @CookieValue(value = "accessToken", required = false) String accessToken) {
+    public CreateMeetingResponse createMeeting(CreateMeetingRequest request,
+            @CookieValue(value = "accessToken", required = false) String accessToken) {
         if (accessToken == null) {
             throw new ResponseStatusException(HttpStatusCode.valueOf(401), "Unauthorized");
         }
@@ -46,7 +75,8 @@ public class MeetingController {
     }
 
     @GetMapping("/{code}")
-    public GetMeetingResponse getMeeting(@CookieValue(value = "accessToken", required = false) String accessToken, @PathVariable String code) {
+    public GetMeetingResponse getMeeting(@CookieValue(value = "accessToken", required = false) String accessToken,
+            @PathVariable String code) {
         if (accessToken == null) {
             throw new ResponseStatusException(HttpStatusCode.valueOf(401), "Unauthorized");
         }
@@ -55,7 +85,8 @@ public class MeetingController {
     }
 
     @PostMapping("/{code}")
-    public JoinMeetingResponse askToJoinMeeting(@PathVariable String code, @CookieValue(value = "accessToken", required = false) String accessToken) {
+    public JoinMeetingResponse askToJoinMeeting(@PathVariable String code,
+            @CookieValue(value = "accessToken", required = false) String accessToken) {
         if (accessToken == null) {
             throw new ResponseStatusException(HttpStatusCode.valueOf(401), "Unauthorized");
         }
@@ -64,7 +95,8 @@ public class MeetingController {
     }
 
     @PostMapping("/{code}/accept")
-    public AskToJoinMeetingResponse acceptMeeting(@RequestBody AskToJoinMeetingRequest request, @PathVariable String code, @CookieValue(value = "accessToken", required = false) String accessToken) {
+    public AskToJoinMeetingResponse acceptMeeting(@RequestBody AskToJoinMeetingRequest request,
+            @PathVariable String code, @CookieValue(value = "accessToken", required = false) String accessToken) {
         if (accessToken == null) {
             throw new ResponseStatusException(HttpStatusCode.valueOf(401), "Unauthorized");
         }
@@ -73,7 +105,8 @@ public class MeetingController {
     }
 
     @PostMapping("/{code}/reject")
-    public AskToJoinMeetingResponse rejectMeeting(@RequestBody AskToJoinMeetingRequest request,@PathVariable String code, @CookieValue(value = "accessToken", required = false) String accessToken) {
+    public AskToJoinMeetingResponse rejectMeeting(@RequestBody AskToJoinMeetingRequest request,
+            @PathVariable String code, @CookieValue(value = "accessToken", required = false) String accessToken) {
         if (accessToken == null) {
             throw new ResponseStatusException(HttpStatusCode.valueOf(401), "Unauthorized");
         }
@@ -82,7 +115,8 @@ public class MeetingController {
     }
 
     @PostMapping("/{code}/leave")
-    public CreateMeetingResponse leaveMeeting(@PathVariable String code, @CookieValue(value = "accessToken", required = false) String accessToken) {
+    public CreateMeetingResponse leaveMeeting(@PathVariable String code,
+            @CookieValue(value = "accessToken", required = false) String accessToken) {
         if (accessToken == null) {
             throw new ResponseStatusException(HttpStatusCode.valueOf(401), "Unauthorized");
         }
@@ -91,7 +125,8 @@ public class MeetingController {
     }
 
     @PostMapping("/{code}/end")
-    public CreateMeetingResponse endMeeting(@PathVariable String code, @CookieValue(value = "accessToken", required = false) String accessToken) {
+    public CreateMeetingResponse endMeeting(@PathVariable String code,
+            @CookieValue(value = "accessToken", required = false) String accessToken) {
         if (accessToken == null) {
             throw new ResponseStatusException(HttpStatusCode.valueOf(401), "Unauthorized");
         }
@@ -100,7 +135,8 @@ public class MeetingController {
     }
 
     @PostMapping("/{code}/kick/{participantId}")
-    public CreateMeetingResponse kickParticipant(@PathVariable String code, @PathVariable String participantId, @CookieValue(value = "accessToken", required = false) String accessToken) {
+    public CreateMeetingResponse kickParticipant(@PathVariable String code, @PathVariable String participantId,
+            @CookieValue(value = "accessToken", required = false) String accessToken) {
         if (accessToken == null) {
             throw new ResponseStatusException(HttpStatusCode.valueOf(401), "Unauthorized");
         }
@@ -141,5 +177,209 @@ public class MeetingController {
 
         // Forward the signaling message to the specific user
         messagingTemplate.convertAndSend("/queue/user/" + to, payload);
+    }
+
+    @GetMapping("/all")
+    public Map<String, Object> getAllMeetingsForUser(
+            @CookieValue(value = "accessToken", required = false) String accessToken) {
+        UUID userId = UUID.fromString(JwtUtil.extractUserId(accessToken));
+        List<Meeting> meetings = meetingRepository.findAllByHostId(userId);
+
+        // Sort meetings by createdAt in descending order (newest first)
+        meetings.sort((m1, m2) -> m2.getCreatedAt().compareTo(m1.getCreatedAt()));
+
+        Map<String, Object> result = new LinkedHashMap<>(); // Use LinkedHashMap to preserve order
+
+        for (Meeting meeting : meetings) {
+            // Create meeting details map
+            Map<String, Object> meetingDetails = new HashMap<>();
+            meetingDetails.put("id", meeting.getId());
+            meetingDetails.put("code", meeting.getCode());
+            meetingDetails.put("title", meeting.getTitle());
+            meetingDetails.put("startTime", meeting.getStartTime());
+            meetingDetails.put("endTime", meeting.getEndTime());
+            meetingDetails.put("status", meeting.getStatus());
+            meetingDetails.put("mediaRoomId", meeting.getMediaRoomId());
+            meetingDetails.put("createdAt", meeting.getCreatedAt());
+
+            // Create host details map with limited information
+            Map<String, Object> hostDetails = new HashMap<>();
+            hostDetails.put("id", meeting.getHost().getId());
+            hostDetails.put("name", meeting.getHost().getName());
+            hostDetails.put("email", meeting.getHost().getEmail());
+
+            meetingDetails.put("host", hostDetails);
+
+            // Get recording URL as a single string (or null if no recording exists)
+            List<Recording> recordings = recordingRepository.findByMeetingId(meeting.getId());
+            String recordingUrl = recordings.isEmpty() ? null : recordings.get(0).getUrl();
+            meetingDetails.put("recordingUrl", recordingUrl);
+
+            // Add to result with meetingId as key
+            result.put(meeting.getId().toString(), meetingDetails);
+        }
+
+        return result;
+    }
+
+    @PostMapping("/upload-recording")
+    public ResponseEntity<Map<String, Object>> uploadRecording(
+            @RequestBody Map<String, Object> request,
+            @CookieValue(value = "accessToken", required = false) String accessToken) {
+
+        return meetingService.uploadRecording(request, accessToken);
+    }
+
+    @PostMapping("/save-transcription")
+    public ResponseEntity<Map<String, Object>> saveTranscription(
+            @RequestBody Map<String, Object> request,
+            @CookieValue(value = "accessToken", required = false) String accessToken) {
+
+        if (accessToken == null) {
+            throw new ResponseStatusException(HttpStatusCode.valueOf(401), "Unauthorized");
+        }
+
+        String meetingCode = (String) request.get("meetingCode");
+        String transcriptionData = (String) request.get("transcription");
+
+        if (meetingCode == null || meetingCode.trim().isEmpty() || transcriptionData == null || transcriptionData.trim().isEmpty()) {
+            throw new ResponseStatusException(HttpStatusCode.valueOf(400), "Missing meetingCode or transcription");
+        }
+
+        Optional<Meeting> meeting = meetingRepository.findByCode(meetingCode);
+        if (meeting.isEmpty()) {
+            throw new ResponseStatusException(HttpStatusCode.valueOf(404), "Meeting not found");
+        }
+
+        Transcription transcription = new Transcription();
+        transcription.setMeeting(meeting.get());
+        transcription.setText(transcriptionData);
+
+        Transcription savedTranscription = transcriptionRepository.save(transcription);
+
+        // Prepare success response
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", true);
+        response.put("message", "Transcription saved successfully");
+        response.put("transcriptionId", savedTranscription.getId().toString());
+        response.put("meetingCode", savedTranscription.getMeeting().getCode());
+        response.put("transcription", savedTranscription.getText());
+
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/download-transcription/{meetingCode}")
+    public ResponseEntity<Resource> downloadTranscription(
+            @PathVariable String meetingCode,
+            @CookieValue(value = "accessToken", required = false) String accessToken) {
+
+        if (accessToken == null) {
+            throw new ResponseStatusException(HttpStatusCode.valueOf(401), "Unauthorized");
+        }
+
+        // Find meeting by code
+        Optional<Meeting> meeting = meetingRepository.findByCode(meetingCode);
+        if (meeting.isEmpty()) {
+            throw new ResponseStatusException(HttpStatusCode.valueOf(404), "Meeting not found");
+        }
+
+        // Find transcription for the meeting
+        Optional<Transcription> transcription = transcriptionRepository.findByMeetingId(meeting.get().getId());
+        if (transcription.isEmpty() || transcription.get().getText() == null || transcription.get().getText().trim().isEmpty()) {
+            throw new ResponseStatusException(HttpStatusCode.valueOf(404), "No transcription found for this meeting");
+        }
+
+        String transcriptionText = transcription.get().getText();
+
+        // Create file content with metadata
+        StringBuilder fileContent = new StringBuilder();
+        fileContent.append("Meeting Transcription\n");
+        fileContent.append("=====================\n\n");
+        fileContent.append("Meeting Code: ").append(meetingCode).append("\n");
+        fileContent.append("Meeting Title: ").append(meeting.get().getTitle()).append("\n");
+        fileContent.append("Date: ").append(meeting.get().getCreatedAt()).append("\n");
+        fileContent.append("Host: ").append(meeting.get().getHost().getName()).append("\n\n");
+        fileContent.append("Transcription:\n");
+        fileContent.append("==============\n\n");
+        fileContent.append(transcriptionText);
+
+        // Convert to bytes
+        byte[] fileBytes = fileContent.toString().getBytes(StandardCharsets.UTF_8);
+        ByteArrayResource resource = new ByteArrayResource(fileBytes);
+
+        // Set filename
+        String filename = "meeting-transcription-" + meetingCode + ".txt";
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
+                .header(HttpHeaders.CONTENT_TYPE, "text/plain; charset=UTF-8")
+                .header(HttpHeaders.CONTENT_LENGTH, String.valueOf(fileBytes.length))
+                .body(resource);
+    }
+
+    @GetMapping("/summary/{meetingCode}")
+    public ResponseEntity<Map<String, Object>> getSummary(
+            @PathVariable String meetingCode,
+            @CookieValue(value = "accessToken", required = false) String accessToken) {
+
+        if (accessToken == null) {
+            throw new ResponseStatusException(HttpStatusCode.valueOf(401), "Unauthorized");
+        }
+
+        Optional<Meeting> meeting = meetingRepository.findByCode(meetingCode);
+        if (meeting.isEmpty()) {
+            throw new ResponseStatusException(HttpStatusCode.valueOf(404), "Meeting not found");
+        }
+
+        Optional<Summary> existingSummary = summaryRepository.findByMeetingId(meeting.get().getId());
+        Map<String, Object> response = new HashMap<>();
+
+        if (existingSummary.isEmpty()) {
+            // Generate new summary
+            Optional<Transcription> transcription = transcriptionRepository.findByMeetingId(meeting.get().getId());
+            if (transcription.isEmpty() || transcription.get().getText() == null || transcription.get().getText().trim().isEmpty()) {
+                throw new ResponseStatusException(HttpStatusCode.valueOf(404), "No transcription found for this meeting");
+            }
+
+            try {
+                // Call Express.js API to generate summary
+                Map<String, Object> summaryResponse = externalApiService.generateSummary(
+                        transcription.get().getText(),
+                        meetingCode
+                );
+
+                // Extract summary data from response - it's a JSON string, not a Map
+                String summaryJsonString = (String) summaryResponse.get("summary");
+
+                // Parse the JSON string to Map<String, Object>
+                ObjectMapper objectMapper = new ObjectMapper();
+                Map<String, Object> summaryData = objectMapper.readValue(summaryJsonString, Map.class);
+
+                // Save summary to database - NO JSON conversion needed!
+                Summary newSummary = new Summary();
+                newSummary.setMeeting(meeting.get());
+                newSummary.setSummary(summaryData); // Direct assignment!
+                Summary savedSummary = summaryRepository.save(newSummary);
+
+                response.put("success", true);
+                response.put("meetingCode", meetingCode);
+                response.put("summary", summaryData);
+                response.put("isNewlyGenerated", true);
+
+            } catch (Exception e) {
+                throw new ResponseStatusException(
+                        HttpStatusCode.valueOf(500),
+                        "Failed to generate summary: " + e.getMessage()
+                );
+            }
+        } else {
+
+            response.put("success", true);
+            response.put("meetingCode", meetingCode);
+            response.put("summary", existingSummary.get().getSummary()); // Direct access!
+            response.put("isNewlyGenerated", false);
+        }
+
+        return ResponseEntity.ok(response);
     }
 }
