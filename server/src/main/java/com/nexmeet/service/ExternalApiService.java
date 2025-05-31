@@ -14,7 +14,7 @@ public class ExternalApiService {
 
     private final WebClient webClient;
 
-    public ExternalApiService(@Value("${express.server.url:http://localhost:3000}") String expressServerUrl) {
+    public ExternalApiService(@Value("${SOCKET_URL}") String expressServerUrl) {
         this.webClient = WebClient.builder()
                 .baseUrl(expressServerUrl)
                 .build();
@@ -24,8 +24,7 @@ public class ExternalApiService {
         try {
             Map<String, Object> requestBody = Map.of(
                     "transcription", transcription,
-                    "meetingId", meetingCode
-            );
+                    "meetingId", meetingCode);
 
             Map<String, Object> response = webClient.post()
                     .uri("/api/generate-summary")
@@ -34,8 +33,7 @@ public class ExternalApiService {
                     .onStatus(HttpStatusCode::isError, clientResponse -> {
                         throw new ResponseStatusException(
                                 HttpStatusCode.valueOf(500),
-                                "Failed to generate summary from Express.js server"
-                        );
+                                "Failed to generate summary from Express.js server");
                     })
                     .bodyToMono(Map.class)
                     .block();
@@ -44,8 +42,7 @@ public class ExternalApiService {
         } catch (Exception e) {
             throw new ResponseStatusException(
                     HttpStatusCode.valueOf(500),
-                    "Error calling Express.js summary service: " + e.getMessage()
-            );
+                    "Error calling Express.js summary service: " + e.getMessage());
         }
     }
 }
