@@ -1,7 +1,6 @@
 package com.nexmeet.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.nexmeet.config.WebRTCConfig;
 import com.nexmeet.dto.*;
 import com.nexmeet.model.*;
 import com.nexmeet.repository.*;
@@ -19,17 +18,14 @@ import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
-import org.springframework.scheduling.annotation.Async;
+
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
+
 import org.springframework.web.server.ResponseStatusException;
 
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
+
 import java.util.*;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/meeting")
@@ -38,29 +34,27 @@ public class MeetingController {
     private final MeetingService meetingService;
     private final MediaSoupService mediaSoupService;
     private final SimpMessagingTemplate messagingTemplate;
-    private final WebRTCConfig webRTCConfig;
     private final UserRepository userRepository;
     private final MeetingRepository meetingRepository;
     private final RecordingRepository recordingRepository;
     private final TranscriptionRepository transcriptionRepository;
     private final SummaryRepository summaryRepository;
     private final ExternalApiService externalApiService;
-    private final ObjectMapper objectMapper;
 
     public MeetingController(MeetingService meetingService, MediaSoupService mediaSoupService,
-                             SimpMessagingTemplate messagingTemplate, WebRTCConfig webRTCConfig, UserRepository userRepository,
-                             MeetingRepository meetingRepository, RecordingRepository recordingRepository, TranscriptionRepository transcriptionRepository, SummaryRepository summaryRepository, ExternalApiService externalApiService, ObjectMapper objectMapper) {
+            SimpMessagingTemplate messagingTemplate, UserRepository userRepository,
+            MeetingRepository meetingRepository, RecordingRepository recordingRepository,
+            TranscriptionRepository transcriptionRepository, SummaryRepository summaryRepository,
+            ExternalApiService externalApiService) {
         this.meetingService = meetingService;
         this.mediaSoupService = mediaSoupService;
         this.messagingTemplate = messagingTemplate;
-        this.webRTCConfig = webRTCConfig;
         this.userRepository = userRepository;
         this.meetingRepository = meetingRepository;
         this.recordingRepository = recordingRepository;
         this.transcriptionRepository = transcriptionRepository;
         this.summaryRepository = summaryRepository;
         this.externalApiService = externalApiService;
-        this.objectMapper = objectMapper;
     }
 
     @PostMapping
@@ -144,11 +138,6 @@ public class MeetingController {
         return meetingService.kickParticipant(code, userEmail, participantId);
     }
 
-    @GetMapping("/ice-servers")
-    public ResponseEntity<Map<String, Object>> getIceServers() {
-        return ResponseEntity.ok(webRTCConfig.getIceServers());
-    }
-
     @PostMapping("/create")
     public ResponseEntity<Map<String, String>> createMeeting() {
         String roomId = mediaSoupService.createRoom();
@@ -182,7 +171,18 @@ public class MeetingController {
     @GetMapping("/all")
     public Map<String, Object> getAllMeetingsForUser(
             @CookieValue(value = "accessToken", required = false) String accessToken) {
-        UUID userId = UUID.fromString(JwtUtil.extractUserId(accessToken));
+        if (accessToken == null) {
+            throw new ResponseStatusException(HttpStatusCode.valueOf(401), "Unauthorized");
+        }
+        String userIdStr = JwtUtil.extractUserId(accessToken);
+        UUID userId = null;
+        if (userIdStr == null) {
+            String userEmail = JwtUtil.extractEmail(accessToken);
+            userId = userRepository.findByEmail(userEmail).get().getId();
+        } else {
+            userId = UUID.fromString(userIdStr);
+        }
+
         List<Meeting> meetings = meetingRepository.findAllByHostId(userId);
 
         // Sort meetings by createdAt in descending order (newest first)
@@ -242,7 +242,8 @@ public class MeetingController {
         String meetingCode = (String) request.get("meetingCode");
         String transcriptionData = (String) request.get("transcription");
 
-        if (meetingCode == null || meetingCode.trim().isEmpty() || transcriptionData == null || transcriptionData.trim().isEmpty()) {
+        if (meetingCode == null || meetingCode.trim().isEmpty() || transcriptionData == null
+                || transcriptionData.trim().isEmpty()) {
             throw new ResponseStatusException(HttpStatusCode.valueOf(400), "Missing meetingCode or transcription");
         }
 
@@ -285,7 +286,8 @@ public class MeetingController {
 
         // Find transcription for the meeting
         Optional<Transcription> transcription = transcriptionRepository.findByMeetingId(meeting.get().getId());
-        if (transcription.isEmpty() || transcription.get().getText() == null || transcription.get().getText().trim().isEmpty()) {
+        if (transcription.isEmpty() || transcription.get().getText() == null
+                || transcription.get().getText().trim().isEmpty()) {
             throw new ResponseStatusException(HttpStatusCode.valueOf(404), "No transcription found for this meeting");
         }
 
@@ -337,16 +339,17 @@ public class MeetingController {
         if (existingSummary.isEmpty()) {
             // Generate new summary
             Optional<Transcription> transcription = transcriptionRepository.findByMeetingId(meeting.get().getId());
-            if (transcription.isEmpty() || transcription.get().getText() == null || transcription.get().getText().trim().isEmpty()) {
-                throw new ResponseStatusException(HttpStatusCode.valueOf(404), "No transcription found for this meeting");
+            if (transcription.isEmpty() || transcription.get().getText() == null
+                    || transcription.get().getText().trim().isEmpty()) {
+                throw new ResponseStatusException(HttpStatusCode.valueOf(404),
+                        "No transcription found for this meeting");
             }
 
             try {
                 // Call Express.js API to generate summary
                 Map<String, Object> summaryResponse = externalApiService.generateSummary(
                         transcription.get().getText(),
-                        meetingCode
-                );
+                        meetingCode);
 
                 // Extract summary data from response - it's a JSON string, not a Map
                 String summaryJsonString = (String) summaryResponse.get("summary");
@@ -369,8 +372,7 @@ public class MeetingController {
             } catch (Exception e) {
                 throw new ResponseStatusException(
                         HttpStatusCode.valueOf(500),
-                        "Failed to generate summary: " + e.getMessage()
-                );
+                        "Failed to generate summary: " + e.getMessage());
             }
         } else {
 
