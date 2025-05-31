@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -16,6 +17,6 @@ public interface ParticipantRepository extends JpaRepository<Participant, UUID> 
     void deleteByMeeting(Meeting meeting);
 
     @Modifying
-    @Query("update Participant p set p.leftAt = CURRENT_TIMESTAMP where p.meeting.id = :meetingId")
-    void endMeeting(@Param("meetingId") UUID meetingId);
+    @Query("update Participant p set p.leftAt = :currentTime where p.meeting.id = :meetingId")
+    void endMeeting(@Param("meetingId") UUID meetingId, @Param("currentTime") Instant currentTime);
     }
