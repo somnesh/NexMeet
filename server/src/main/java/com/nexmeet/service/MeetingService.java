@@ -4,12 +4,15 @@ import com.nexmeet.dto.*;
 import com.nexmeet.model.*;
 import com.nexmeet.repository.MeetingRepository;
 import com.nexmeet.repository.ParticipantRepository;
+import com.nexmeet.repository.RecordingRepository;
 import com.nexmeet.repository.UserRepository;
 import com.nexmeet.util.MeetingCodeGenerator;
 import org.springframework.http.HttpStatusCode;
+import org.springframework.http.ResponseEntity;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
@@ -25,18 +28,20 @@ public class MeetingService {
     private final ParticipantRepository participantRepository;
     private final MediaSoupService mediaSoupService;
     private final SimpMessagingTemplate messagingTemplate;
+    private final RecordingRepository recordingRepository;
 
     public MeetingService(
-            MeetingRepository meetingRepository, 
-            UserRepository userRepository, 
+            MeetingRepository meetingRepository,
+            UserRepository userRepository,
             ParticipantRepository participantRepository,
             MediaSoupService mediaSoupService,
-            SimpMessagingTemplate messagingTemplate) {
+            SimpMessagingTemplate messagingTemplate, RecordingRepository recordingRepository) {
         this.meetingRepository = meetingRepository;
         this.userRepository = userRepository;
         this.participantRepository = participantRepository;
         this.mediaSoupService = mediaSoupService;
         this.messagingTemplate = messagingTemplate;
+        this.recordingRepository = recordingRepository;
     }
 
     public Map<String, Meeting> getAllMeetings() {
@@ -92,13 +97,7 @@ public class MeetingService {
 
     @Transactional
     public JoinMeetingResponse askToJoinMeeting(String code, String userEmail) {
-        Optional<Meeting> meetingOpt = meetingRepository.findByCode(code);
-        // Check if the meeting exists or not
-        if(meetingOpt.isEmpty()) {
-            throw new ResponseStatusException(HttpStatusCode.valueOf(404), "Meeting not found");
-        }
-        
-        Meeting meeting = meetingOpt.get();
+        Meeting meeting = getMeeting(code);
 
         if (meeting.getHost().getEmail().equals(userEmail)) {
             // For host: automatically join the MediaSoup room
@@ -110,7 +109,9 @@ public class MeetingService {
             
             try {
                 mediaSoupService.joinRoom(meeting.getMediaRoomId(), mediaUser);
-                
+
+                meetingRepository.updateStartTimeAndStatus(meeting.getId(), Instant.now(), MeetingStatus.ACTIVE);
+
                 // Notify others that host has joined
                 messagingTemplate.convertAndSend(
                     "/topic/room/" + meeting.getCode(),
@@ -246,7 +247,7 @@ public class MeetingService {
             throw new ResponseStatusException(HttpStatusCode.valueOf(403),"You are not the host of the meeting");
         }
 
-        participantRepository.endMeeting(meeting.getId());
+        participantRepository.endMeeting(meeting.getId(), Instant.now());
         meeting.setStatus(MeetingStatus.ENDED);
         meeting.setEndTime(Instant.now());
         meetingRepository.save(meeting);
@@ -346,5 +347,86 @@ public class MeetingService {
     private Participant getParticipant(UUID participantId) {
         return participantRepository.findById(participantId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatusCode.valueOf(404), "Participant not found"));
+    }
+
+    @Transactional
+    public ResponseEntity<Map<String, Object>> uploadRecording(@RequestBody Map<String, Object> request, String accessToken){
+        try {
+            // Validate access token
+            if (accessToken == null) {
+                throw new ResponseStatusException(HttpStatusCode.valueOf(401), "Invalid access token");
+            }
+
+            // Extract request parameters
+            String url = (String) request.get("url");
+            String meetingCode = (String) request.get("meetingCode");
+            String participantId = (String) request.get("participantId");
+            String recordingType = (String) request.get("recordingType");
+
+            // Validate required fields
+            if (url == null || url.trim().isEmpty()) {
+                throw new ResponseStatusException(HttpStatusCode.valueOf(400), "URL is required");
+            }
+
+            if (meetingCode == null || meetingCode.trim().isEmpty()) {
+                throw new ResponseStatusException(HttpStatusCode.valueOf(400), "meetingCode is required");
+            }
+
+            if (participantId == null || participantId.trim().isEmpty()) {
+                throw new ResponseStatusException(HttpStatusCode.valueOf(400), "participantId is required");
+            }
+
+            // Find the meeting by code
+            Optional<Meeting> meeting = meetingRepository.findByCode(meetingCode);
+            if (meeting.isEmpty()) {
+                throw new ResponseStatusException(HttpStatusCode.valueOf(404), "Meeting not found");
+            }
+
+            // Create recording entity and save to database
+            Recording recording = new Recording();
+            recording.setMeeting(meeting.get());
+            recording.setUrl(url);
+
+            // Save recording to database
+            Recording savedRecording = recordingRepository.save(recording);
+
+            System.out.printf(
+                    "Recording saved - Meeting: %s, Participant: %s, URL: %s, Type: %s%n",
+                    meetingCode, participantId, url, recordingType);
+
+            // Prepare success response
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "Recording saved successfully");
+            response.put("recordingId", savedRecording.getId());
+            response.put("meetingCode", meetingCode);
+            response.put("url", url);
+            response.put("recordingType", recordingType);
+
+
+            // Optionally notify other participants about the new recording
+            try {
+                String notification = "New recording saved for meeting: " + meetingCode;
+
+                messagingTemplate.convertAndSend("/topic/meeting/" + meetingCode, Map.of(
+                        "type", "RECORDING_SAVED"
+                ));
+                System.out.println("Notified participants about new recording for meeting: " + meetingCode);
+            } catch (Exception e) {
+                System.err.println("Error notifying participants about recording: " + e.getMessage());
+            }
+
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            System.err.println("Error saving recording: " + e.getMessage());
+            e.printStackTrace();
+
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("success", false);
+            errorResponse.put("error", "Failed to save recording: " + e.getMessage());
+
+            return ResponseEntity.status(500).body(errorResponse);
+        }
     }
 }
