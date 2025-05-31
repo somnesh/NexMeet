@@ -3,6 +3,7 @@ const express = require("express");
 const http = require("http");
 const socketIO = require("socket.io");
 const cors = require("cors");
+const { v2: cloudinary } = require("cloudinary");
 
 const {
   SpeechConfig,
@@ -14,20 +15,22 @@ const { GoogleGenerativeAI } = require("@google/generative-ai");
 const axios = require("axios");
 const fs = require("fs");
 const path = require("path");
+const { verifyToken } = require("./middleware/verrifyToken");
 
 // Initialize Express app
 const app = express();
-app.use(cors());
+app.use(
+  cors({
+    credentials: true,
+    origin: [process.env.CLIENT_URL, process.env.SERVER_URL],
+  })
+);
 app.use(express.json());
 
 const server = http.createServer(app);
 const io = socketIO(server, {
   cors: {
-    origin: [
-      "http://localhost:5173",
-      "https://nex-meet-theta.vercel.app",
-      "https://nexmeet-spring-boot-service.onrender.com",
-    ],
+    origin: [process.env.CLIENT_URL, process.env.SERVER_URL],
     methods: ["GET", "POST"],
     credentials: true,
   },
@@ -674,6 +677,25 @@ function extractAndCleanJson(text) {
 
   return cleaned.trim();
 }
+
+app.get("/api/cloudinary-signature", verifyToken, async (req, res) => {
+  const timestamp = Math.round(new Date().getTime() / 1000); // Current timestamp
+  const paramsToSign = {
+    timestamp: timestamp,
+  };
+
+  const signature = cloudinary.utils.api_sign_request(
+    paramsToSign,
+    process.env.CLOUDINARY_CLOUD_API_SECRET
+  );
+
+  res.json({
+    timestamp,
+    signature,
+    cloudName: process.env.CLOUDINARY_CLOUD_NAME,
+    apiKey: process.env.CLOUDINARY_CLOUD_API,
+  });
+});
 
 // Start server
 const PORT = process.env.PORT || 3000;
