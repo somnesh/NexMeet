@@ -8,13 +8,13 @@ import com.nexmeet.util.JwtUtil;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.springframework.http.HttpStatus;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatusCode;
-import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -29,6 +29,9 @@ public class OAuth2Controller {
 
     private final UserRepository userRepository;
 
+    @Value("${CLIENT_SERVER_URL}")
+    private String frontendUrl;
+
     public OAuth2Controller(UserRepository userRepository) {
         this.userRepository = userRepository;
     }
@@ -41,11 +44,11 @@ public class OAuth2Controller {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
         if (authentication == null || !(authentication.getPrincipal() instanceof OAuth2User)) {
-            throw new ResponseStatusException(HttpStatusCode.valueOf(500),"Google authentication failed!");
+            throw new ResponseStatusException(HttpStatusCode.valueOf(500), "Google authentication failed!");
         }
 
         OAuth2User oAuth2User = (OAuth2User) authentication.getPrincipal();
-        System.out.println("Oauth User: "+oAuth2User);
+        System.out.println("Oauth User: " + oAuth2User);
 
         // Extract user details from Google
         String openId = oAuth2User.getAttribute("sub");
@@ -54,7 +57,8 @@ public class OAuth2Controller {
         String avatar = oAuth2User.getAttribute("picture");
 
         if (email == null) {
-            throw new ResponseStatusException(HttpStatusCode.valueOf(500),"Failed to retrieve email from Google account!");
+            throw new ResponseStatusException(HttpStatusCode.valueOf(500),
+                    "Failed to retrieve email from Google account!");
         }
 
         // Check if user already exists in DB
@@ -73,7 +77,7 @@ public class OAuth2Controller {
             userRepository.save(user);
         }
 
-        System.out.println("User: "+user);
+        System.out.println("User: " + user);
         // Generate JWT token
         String accessToken = JwtUtil.generateAccessToken(String.valueOf(user.getId()), email);
         String refreshToken = JwtUtil.generateRefreshToken(email);
@@ -88,7 +92,23 @@ public class OAuth2Controller {
         addCookie(response, "accessToken", accessToken, 15 * 60);
         addCookie(response, "refreshToken", refreshToken, 7 * 24 * 60 * 60);
 
-        response.sendRedirect("http://localhost:5173");
+        String redirectUrl = frontendUrl + "?oauth=success";
+        response.sendRedirect(redirectUrl);
+    }
+
+    @GetMapping("/profile")
+    public AuthResponse getUserProfile(@CookieValue(value = "accessToken", required = false) String accessToken) {
+        if (accessToken == null) {
+            throw new ResponseStatusException(HttpStatusCode.valueOf(401), "Unauthorized");
+        }
+        String userEmail = JwtUtil.extractEmail(accessToken);
+
+        Optional<User> user = userRepository.findByEmail(userEmail);
+        return user
+                .map(u -> new AuthResponse(u.getName(), u.getId().toString(), u.getEmail(), u.getAvatar(),
+                        JwtUtil.generateAccessToken(u.getId().toString(), u.getEmail()),
+                        JwtUtil.generateRefreshToken(u.getEmail()), "User profile retrieved successfully"))
+                .orElseThrow(() -> new ResponseStatusException(HttpStatusCode.valueOf(404), "User not found"));
     }
 
     private void addCookie(HttpServletResponse response, String name, String value, int expiry) {
@@ -96,9 +116,8 @@ public class OAuth2Controller {
         cookie.setHttpOnly(true);
         cookie.setSecure(true);
         cookie.setPath("/");
-        cookie.setDomain("localhost");
         cookie.setMaxAge(expiry);
-        cookie.setAttribute("SameSite", "Strict");
+        cookie.setAttribute("SameSite", "None");
         response.addCookie(cookie);
     }
 }
