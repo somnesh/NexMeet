@@ -19,14 +19,6 @@ const router = createBrowserRouter([
     element: <AuthPage />,
   },
   {
-    path: "/call",
-    element: <VideoCallInterface />,
-  },
-  {
-    path: "/join",
-    element: <PreJoinPage />,
-  },
-  {
     path: "/:meetingCode",
     element: <MeetingPage />,
   },
@@ -67,7 +59,7 @@ function App() {
   return (
     <>
       <ThemeProvider value={{ theme, darkTheme, lightTheme }}>
-        <Toaster richColors/>
+        <Toaster richColors />
         <RouterProvider router={router} />
       </ThemeProvider>
     </>
