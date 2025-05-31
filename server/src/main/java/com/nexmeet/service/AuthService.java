@@ -6,7 +6,6 @@ import com.nexmeet.dto.RegisterRequest;
 import com.nexmeet.model.Role;
 import com.nexmeet.model.User;
 
-
 import com.nexmeet.repository.UserRepository;
 import com.nexmeet.util.JwtUtil;
 import jakarta.servlet.http.Cookie;
@@ -31,7 +30,8 @@ public class AuthService {
     private final AuthenticationManager authenticationManager;
     private final UserDetailsService userDetailsService;
 
-    public AuthService(AuthenticationManager authenticationManager, UserRepository userRepository, PasswordEncoder passwordEncoder, UserDetailsService userDetailsService) {
+    public AuthService(AuthenticationManager authenticationManager, UserRepository userRepository,
+            PasswordEncoder passwordEncoder, UserDetailsService userDetailsService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.authenticationManager = authenticationManager;
@@ -54,28 +54,26 @@ public class AuthService {
 
         user.setPassword(passwordEncoder.encode(request.getPassword()));
 
-        userRepository.save(user);
-
         String accessToken = JwtUtil.generateAccessToken(String.valueOf(user.getId()), request.getEmail());
         String refreshToken = JwtUtil.generateRefreshToken(request.getEmail());
 
+        user.setRefreshToken(refreshToken);
+        userRepository.save(user);
         // Set Access Token as HttpOnly Cookie
         setCookie(response, "accessToken", accessToken, 15 * 60); // 15 minutes expiry
 
         // Set Refresh Token as HttpOnly Cookie
         setCookie(response, "refreshToken", refreshToken, 7 * 24 * 60 * 60); // 7 days expiry
 
-        return new AuthResponse(user.getName(), user.getId().toString(),user.getEmail(), user.getAvatar(), accessToken, refreshToken,"User registered successfully");
+        return new AuthResponse(user.getName(), user.getId().toString(), user.getEmail(), user.getAvatar(), accessToken,
+                refreshToken, "User registered successfully");
     }
 
     public AuthResponse login(LoginRequest request, HttpServletResponse response) throws CredentialException {
         Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
-        );
+                new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword()));
 
         UserDetails userDetails = (UserDetails) authentication.getPrincipal();
-
-
 
         // Store refresh token in database
         User user = userRepository.findByEmail(userDetails.getUsername())
@@ -94,7 +92,8 @@ public class AuthService {
         // Set Refresh Token as HttpOnly Cookie
         setCookie(response, "refreshToken", refreshToken, 7 * 24 * 60 * 60); // 7 days expiry
 
-        return new AuthResponse(user.getName(), user.getId().toString(), user.getEmail(), user.getAvatar(), accessToken, refreshToken, "Login successful");
+        return new AuthResponse(user.getName(), user.getId().toString(), user.getEmail(), user.getAvatar(), accessToken,
+                refreshToken, "Login successful");
     }
 
     public AuthResponse getAccessToken(String token, HttpServletResponse response) throws CredentialException {
@@ -112,14 +111,12 @@ public class AuthService {
             throw new UsernameNotFoundException("User not found");
         }
 
-
-
         // Store refresh token in database
         User user = userRepository.findByEmail(userDetails.getUsername())
                 .orElseThrow(() -> new CredentialException("User not found"));
 
         // Generate Access & Refresh Tokens
-        String accessToken = JwtUtil.generateAccessToken(String.valueOf(user.getId()),userDetails.getUsername());
+        String accessToken = JwtUtil.generateAccessToken(String.valueOf(user.getId()), userDetails.getUsername());
         String refreshToken = JwtUtil.generateRefreshToken(userDetails.getUsername());
 
         user.setRefreshToken(refreshToken);
@@ -131,7 +128,8 @@ public class AuthService {
         // Set Refresh Token as HttpOnly Cookie
         setCookie(response, "refreshToken", refreshToken, 7 * 24 * 60 * 60); // 7 days expiry
 
-        return new AuthResponse(user.getName(), user.getId().toString(), user.getEmail(), user.getAvatar(), accessToken, refreshToken, "Token refreshed");
+        return new AuthResponse(user.getName(), user.getId().toString(), user.getEmail(), user.getAvatar(), accessToken,
+                refreshToken, "Token refreshed");
     }
 
     private void setCookie(HttpServletResponse response, String name, String value, int maxAge) {
