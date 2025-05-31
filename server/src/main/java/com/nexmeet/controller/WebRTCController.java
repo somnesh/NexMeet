@@ -25,8 +25,7 @@ public class WebRTCController {
         return mediaSoupService.createTransport(
                 params.get("roomId"),
                 params.get("userId"),
-                params.get("direction")
-        );
+                params.get("direction"));
     }
 
     @PostMapping("/transport/connect")
@@ -34,8 +33,7 @@ public class WebRTCController {
             @RequestBody Map<String, Object> params) {
         return mediaSoupService.connectTransport(
                 (String) params.get("transportId"),
-                (Map<String, Object>) params.get("dtlsParameters")
-        );
+                (Map<String, Object>) params.get("dtlsParameters"));
     }
 
     @GetMapping("/rooms/{roomId}")
@@ -50,7 +48,7 @@ public class WebRTCController {
 
     @PostMapping("/rooms/{roomId}/leave")
     public void leaveRoom(@PathVariable String roomId,
-                          @RequestParam String userId) {
+            @RequestParam String userId) {
         mediaSoupService.leaveRoom(roomId, userId);
     }
 
@@ -68,9 +66,7 @@ public class WebRTCController {
         // Notify other participants
         messagingTemplate.convertAndSend(
                 "/topic/room/" + roomId,
-                Map.of("type", "user-left", "userId", userId)
-        );
+                Map.of("type", "user-left", "userId", userId));
     }
-
 
 }
