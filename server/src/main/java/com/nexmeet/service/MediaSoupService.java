@@ -104,19 +104,19 @@ public class MediaSoupService {
 
         System.out.println("debug: 2");
         String roomId = UUID.randomUUID().toString();
-        socketIoClient.getSocket().emit("joinRoom", new String[]{roomId}, (Object... args) -> {
+        socketIoClient.getSocket().emit("joinRoom", new String[] { roomId }, (Object... args) -> {
             System.out.println("debug: 2.1");
             if (args != null && args.length > 0 && args[0] != null) {
                 System.out.println("debug: 2.2");
                 rooms.put(roomId, new Room(roomId));
                 System.out.println("debug: 2.3");
                 future.complete(roomId);
-                
+
             } else {
                 future.completeExceptionally(new RuntimeException("Failed to create room"));
             }
         });
-        
+
         System.out.println("debug: 3");
         try {
             System.out.println("debug: 4");
@@ -142,13 +142,13 @@ public class MediaSoupService {
         }
 
         CompletableFuture<Void> future = new CompletableFuture<>();
-        
+
         Map<String, Object> joinData = new HashMap<>();
         joinData.put("roomId", roomId);
         joinData.put("userId", user.getId());
         joinData.put("name", user.getName());
 
-        socketIoClient.getSocket().emit("joinRoom", new Map[]{joinData}, (Object... args) -> {
+        socketIoClient.getSocket().emit("joinRoom", new Map[] { joinData }, (Object... args) -> {
             if (args != null && args.length > 0 && args[0] != null) {
                 room.addParticipant(user);
                 future.complete(null);
@@ -188,11 +188,11 @@ public class MediaSoupService {
 
     public CompletableFuture<Map<String, Object>> createTransport(String roomId, String userId, String direction) {
         CompletableFuture<Map<String, Object>> future = new CompletableFuture<>();
-        
+
         Map<String, Object> params = new HashMap<>();
         params.put("direction", direction);
-        
-        socketIoClient.getSocket().emit("createWebRtcTransport", new Map[]{params}, (Object... args) -> {
+
+        socketIoClient.getSocket().emit("createWebRtcTransport", new Map[] { params }, (Object... args) -> {
             if (args.length > 0 && args[0] instanceof Map) {
                 @SuppressWarnings("unchecked")
                 Map<String, Object> response = (Map<String, Object>) args[0];
@@ -201,25 +201,25 @@ public class MediaSoupService {
                 future.completeExceptionally(new RuntimeException("Failed to create transport"));
             }
         });
-        
+
         return future;
     }
 
     public CompletableFuture<Boolean> connectTransport(String transportId, Map<String, Object> dtlsParameters) {
         CompletableFuture<Boolean> future = new CompletableFuture<>();
-        
+
         Map<String, Object> params = new HashMap<>();
         params.put("transportId", transportId);
         params.put("dtlsParameters", dtlsParameters);
-        
-        socketIoClient.getSocket().emit("connectTransport", new Map[]{params}, (Object... args) -> {
+
+        socketIoClient.getSocket().emit("connectTransport", new Map[] { params }, (Object... args) -> {
             if (args.length > 0 && args[0] instanceof Map) {
                 future.complete(true);
             } else {
                 future.completeExceptionally(new RuntimeException("Failed to connect transport"));
             }
         });
-        
+
         return future;
     }
 }
