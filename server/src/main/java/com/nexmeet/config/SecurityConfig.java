@@ -27,8 +27,6 @@ public class SecurityConfig {
     public SecurityConfig(JwtFilter jwtFilter) {
         this.jwtFilter = jwtFilter;
     }
-    private JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
-
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -36,32 +34,29 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(cors -> cors.configure(http))
                 .sessionManagement(session -> session
-                        .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED)
-                )
+                        .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/health/**").permitAll()
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/api/oauth/**", "/oauth2/**").permitAll()
                         .requestMatchers("/ws/**").permitAll()
                         .requestMatchers("/api/admin/**").hasAuthority("ROLE_ADMIN")
-                        .anyRequest().authenticated()
-                )
+                        .anyRequest().authenticated())
                 .oauth2Login(oauth2 -> oauth2
-                        .defaultSuccessUrl("/api/oauth/google-success", true)
-                )
+                        .defaultSuccessUrl("/api/oauth/google-success", true))
                 .exceptionHandling(exceptions -> exceptions
                         .authenticationEntryPoint((request, response, authException) -> {
                             // Check if the request is an API request
                             if (request.getRequestURI().startsWith("/api/")) {
                                 response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                                 response.setContentType("application/json");
-                                response.getWriter().write("{\"error\":\"Unauthorized\",\"message\":\"Authentication required\"}");
+                                response.getWriter()
+                                        .write("{\"error\":\"Unauthorized\",\"message\":\"Authentication required\"}");
                             } else {
                                 // For non-API requests, redirect to login page
                                 response.sendRedirect("/oauth2/authorization/google");
                             }
-                        })
-                )
+                        }))
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
@@ -72,10 +67,9 @@ public class SecurityConfig {
         return new BCryptPasswordEncoder();
     }
 
-
     @Bean
     public AuthenticationManager authenticationManager(HttpSecurity http,
-                                                       CustomAuthenticationProvider customAuthenticationProvider) throws Exception {
+            CustomAuthenticationProvider customAuthenticationProvider) throws Exception {
         return http.getSharedObject(AuthenticationManagerBuilder.class)
                 .authenticationProvider(customAuthenticationProvider)
                 .build();
