@@ -38,11 +38,9 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Input } from "@/components/ui/input";
+
 import { Badge } from "@/components/ui/badge";
-import { Slider } from "@/components/ui/slider";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
+
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -51,29 +49,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { VideoOffIcon as RecordOff } from "lucide-react";
 import mediaSoupService from "/src/services/mediaSoupService.js";
 import stompService from "/src/services/stompService.js";
 import { Card } from "@/components/ui/card";
 import API from "/src/api/api.js";
-import { toast } from "sonner"
-
+import { toast } from "sonner";
+import axios from "axios";
 
 export default function VideoCallInterface({
   meetingCode,
@@ -84,6 +66,9 @@ export default function VideoCallInterface({
   const [sidebarTab, setSidebarTab] = useState("chat");
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
+  const [recordingData, setRecordingData] = useState(null);
+  const [mediaRecorder, setMediaRecorder] = useState(null);
+  const [recordedChunks, setRecordedChunks] = useState([]);
   const [layout, setLayout] = useState("grid"); // grid, spotlight, sidebar
   const [isLeavingCall, setIsLeavingCall] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -94,41 +79,41 @@ export default function VideoCallInterface({
   const [isCameraOff, setIsCameraOff] = useState(false);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [audioLevel, setAudioLevel] = useState(80);
-  const [videoStream, setVideoStream] = useState(null);
-  const [audioStream, setAudioStream] = useState(null);
+  // const [videoStream, setVideoStream] = useState(null);
+  // const [audioStream, setAudioStream] = useState(null);
   // State to store remote streams
   const [remoteStreams, setRemoteStreams] = useState({});
-  const remoteStreamRefs = useRef({});
+  // const remoteStreamRefs = useRef({});
   const [localStream, setLocalStream] = useState(null);
   const videoRefs = useRef({});
 
   // State for chat
-  const [chatMessages, setChatMessages] = useState([
-    {
-      id: 1,
-      sender: "Alex Thompson",
-      initials: "AT",
-      message: "Hi everyone! Can you all see my screen?",
-      timestamp: new Date(Date.now() - 1000 * 60 * 5), // 5 minutes ago
-      isCurrentUser: false,
-    },
-    {
-      id: 2,
-      sender: "Blake Rivera",
-      initials: "BR",
-      message: "Yes, I can see it clearly.",
-      timestamp: new Date(Date.now() - 1000 * 60 * 4), // 4 minutes ago
-      isCurrentUser: false,
-    },
-    {
-      id: 3,
-      sender: "You",
-      initials: "YO",
-      message: "I can see it too. Let's discuss the project timeline.",
-      timestamp: new Date(Date.now() - 1000 * 60 * 3), // 3 minutes ago
-      isCurrentUser: true,
-    },
-  ]);
+  // const [chatMessages, setChatMessages] = useState([
+  //   {
+  //     id: 1,
+  //     sender: "Alex Thompson",
+  //     initials: "AT",
+  //     message: "Hi everyone! Can you all see my screen?",
+  //     timestamp: new Date(Date.now() - 1000 * 60 * 5), // 5 minutes ago
+  //     isCurrentUser: false,
+  //   },
+  //   {
+  //     id: 2,
+  //     sender: "Blake Rivera",
+  //     initials: "BR",
+  //     message: "Yes, I can see it clearly.",
+  //     timestamp: new Date(Date.now() - 1000 * 60 * 4), // 4 minutes ago
+  //     isCurrentUser: false,
+  //   },
+  //   {
+  //     id: 3,
+  //     sender: "You",
+  //     initials: "YO",
+  //     message: "I can see it too. Let's discuss the project timeline.",
+  //     timestamp: new Date(Date.now() - 1000 * 60 * 3), // 3 minutes ago
+  //     isCurrentUser: true,
+  //   },
+  // ]);
   const [newMessage, setNewMessage] = useState("");
   const [acceptLoading, setAcceptLoading] = useState(false);
   const [rejectLoading, setRejectLoading] = useState(false);
@@ -150,6 +135,9 @@ export default function VideoCallInterface({
   const [joinRequests, setJoinRequests] = useState([]);
   const [showJoinRequestPopup, setShowJoinRequestPopup] = useState(true);
   const [currentPopupRequest, setCurrentPopupRequest] = useState(null);
+
+  const CLOUD_API = import.meta.env.VITE_CLOUDINARY_CLOUD_API;
+  const CLOUD_API_SIGN = import.meta.env.VITE_CLOUDINARY_API_SIGN;
 
   // Set the current popup request when join requests change
   useEffect(() => {
@@ -232,7 +220,6 @@ export default function VideoCallInterface({
           toast.info(`${data.name} left the meeting`);
           // Remove participant from the list
           removeParticipant(data.peerId);
-
         });
 
         mediaSoupService.on("peerJoined", (data) => {
@@ -240,11 +227,13 @@ export default function VideoCallInterface({
           toast(`${data.name} joined`);
           // Remove participant from the list
           if (data) {
-          setParticipants((prev) => {const exists = prev.some((item) => item.userId === data.userId);
-            if (!exists) {
-              return [...prev, data]; // Add new if not exists
-            }
-            return prev; });
+            setParticipants((prev) => {
+              const exists = prev.some((item) => item.userId === data.userId);
+              if (!exists) {
+                return [...prev, data]; // Add new if not exists
+              }
+              return prev;
+            });
           }
         });
 
@@ -275,14 +264,13 @@ export default function VideoCallInterface({
     console.log("removeParticipant: ", participants);
 
     setParticipants((prevParticipants) =>
-        prevParticipants.filter(participant => participant.id !== id)
+      prevParticipants.filter((participant) => participant.id !== id)
     );
-
-  }
+  };
 
   useEffect(() => {
-    (async ()=> await joinRoom())();
-  },[joinRequests]);
+    (async () => await joinRoom())();
+  }, [joinRequests]);
 
   const joinRoom = async () => {
     const { peerList } = await mediaSoupService.joinRoom(
@@ -317,54 +305,55 @@ export default function VideoCallInterface({
 
   console.log("Participants after use join room: ", participants);
   const initializeLocalMedia = async () => {
-      try {
-        // Request access to camera and microphone
-        const stream = await navigator.mediaDevices.getUserMedia({
-          audio: true,
-          video: true,
-        });
+    try {
+      // Request access to camera and microphone
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: true,
+        video: true,
+      });
 
-        setLocalStream(stream);
+      setLocalStream(stream);
 
-        // Display local video
-        if (localVideoRef.current) {
-          localVideoRef.current.srcObject = stream;
-        }
-
-        console.log("MediaSoup state:", {
-          socket: mediaSoupService.socket?.connected,
-          device: mediaSoupService.device?.loaded,
-          producerTransport: !!mediaSoupService.producerTransport,
-          consumerTransport: !!mediaSoupService.consumerTransport,
-        });
-
-        // Produce tracks for MediaSoup
-        const audioTrack = stream.getAudioTracks()[0];
-        if (audioTrack) {
-          console.log("Producing audio track", audioTrack);
-
-          await mediaSoupService.produceTrack(audioTrack, "audio");
-        }
-
-        const videoTrack = stream.getVideoTracks()[0];
-        if (videoTrack) {
-          console.log("Producing video track");
-
-          await mediaSoupService.produceTrack(videoTrack, "video");
-        }
-
-        return stream;
-      } catch (error) {
-        console.error("Error accessing media devices:", error);
-        // Set camera and mic to off if access is denied
-        setIsCameraOff(true);
-        setIsMicMuted(true);
+      // Display local video
+      if (localVideoRef.current) {
+        localVideoRef.current.srcObject = stream;
       }
+
+      console.log("MediaSoup state:", {
+        socket: mediaSoupService.socket?.connected,
+        device: mediaSoupService.device?.loaded,
+        producerTransport: !!mediaSoupService.producerTransport,
+        consumerTransport: !!mediaSoupService.consumerTransport,
+      });
+
+      // Produce tracks for MediaSoup
+      const audioTrack = stream.getAudioTracks()[0];
+      if (audioTrack) {
+        console.log("Producing audio track", audioTrack);
+
+        await mediaSoupService.produceTrack(audioTrack, "audio");
+      }
+
+      const videoTrack = stream.getVideoTracks()[0];
+      if (videoTrack) {
+        console.log("Producing video track");
+
+        await mediaSoupService.produceTrack(videoTrack, "video");
+      }
+
+      return stream;
+    } catch (error) {
+      console.error("Error accessing media devices:", error);
+      // Set camera and mic to off if access is denied
+      setIsCameraOff(true);
+      setIsMicMuted(true);
+    }
   };
 
   useEffect(() => {
-      (async ()=> {if (isMediaSoupInitialized) await initializeLocalMedia();})();
-
+    (async () => {
+      if (isMediaSoupInitialized) await initializeLocalMedia();
+    })();
 
     // Cleanup function to stop all tracks
     return () => {
@@ -373,8 +362,6 @@ export default function VideoCallInterface({
       }
     };
   }, [isMediaSoupInitialized]);
-
-
 
   const handleJoinRequest = async (id, isAccepted) => {
     try {
@@ -470,15 +457,32 @@ export default function VideoCallInterface({
   };
 
   // Handle leaving the call
-  const handleLeaveCall = () => {
+  const handleLeaveCall = async () => {
     setIsLeavingCall(true);
 
-    // Simulate leaving the call
-    setTimeout(() => {
-      console.log("Left the call");
-      // Here you would redirect to the home page or meeting ended page
+    try {
+      if (getMeetingResponse.host) {
+        // If host, end the meeting
+        await API.post(`/meeting/${meetingCode}/end`);
+      } else {
+        await API.post(`/meeting/${meetingCode}/leave`);
+      }
+    } catch (error) {
+      console.error("Error leaving call:", error);
+    } finally {
+      // Cleanup MediaSoup and STOMP connections
+      mediaSoupService.close();
+      stompService.disconnect();
+
+      // Reset state
+      setParticipants([]);
+      setRemoteStreams({});
+      setLocalStream(null);
+      setIsLeavingCall(false);
+
+      // Redirect to home
       window.location.href = "/";
-    }, 1500);
+    }
   };
 
   // Handle toggling participant pin status
@@ -502,7 +506,6 @@ export default function VideoCallInterface({
       minute: "2-digit",
     }).format(timestamp);
   };
-
 
   // Add this useEffect to listen for new consumers (remote tracks)
   useEffect(() => {
@@ -575,7 +578,6 @@ export default function VideoCallInterface({
     // Add event listeners to mediaSoupService
     // mediaSoupService.on("newConsumer", handleNewConsumer);
     mediaSoupService.on("consumerClosed", handleConsumerClosed);
-
 
     // Cleanup
     return () => {
@@ -734,6 +736,623 @@ export default function VideoCallInterface({
   const otherParticipants = participants.filter(
     (p) => p.participantId !== mainParticipant.participantId
   );
+
+  // recording
+  const startRecording = async () => {
+    try {
+      // Get the current user's video stream
+      const videoStream = localVideoRef.current?.srcObject;
+
+      if (!videoStream) {
+        toast.error("No video stream available for recording");
+        return;
+      }
+
+      // Create a canvas to capture the entire meeting view
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
+
+      // Set canvas dimensions (you can adjust based on your needs)
+      canvas.width = 1920;
+      canvas.height = 1080;
+
+      // Get audio context for mixing audio streams
+      const audioContext = new AudioContext();
+      const destination = audioContext.createMediaStreamDestination();
+
+      // Collect all audio streams from participants
+      const audioSources = [];
+
+      // Add local audio if available
+      if (videoStream.getAudioTracks().length > 0) {
+        const localAudioSource =
+          audioContext.createMediaStreamSource(videoStream);
+        localAudioSource.connect(destination);
+        audioSources.push(localAudioSource);
+        console.log("Added local audio to recording");
+      }
+
+      // Add remote audio streams from remoteStreams
+      Object.entries(remoteStreams).forEach(([peerId, tracks]) => {
+        if (tracks && tracks.audio) {
+          try {
+            // Create a MediaStream from the audio track
+            const remoteAudioStream = new MediaStream([tracks.audio]);
+            const remoteAudioSource =
+              audioContext.createMediaStreamSource(remoteAudioStream);
+            remoteAudioSource.connect(destination);
+            audioSources.push(remoteAudioSource);
+            console.log(`Added remote audio from peer ${peerId} to recording`);
+          } catch (error) {
+            console.warn(`Failed to add audio from peer ${peerId}:`, error);
+          }
+        }
+      });
+
+      console.log(
+        `Recording will include ${audioSources.length} audio sources`
+      );
+
+      // Create a combined stream with canvas video and mixed audio
+      const canvasStream = canvas.captureStream(30); // 30 FPS
+      const combinedStream = new MediaStream([
+        ...canvasStream.getVideoTracks(),
+        ...destination.stream.getAudioTracks(),
+      ]);
+
+      // Function to draw the meeting layout on canvas
+      const drawMeetingLayout = () => {
+        // Clear canvas
+        ctx.fillStyle = "#000000";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Draw main participant video (if in spotlight/pinned view)
+        const mainParticipant =
+          participants.find((p) => p.isPinned) || participants[0];
+
+        if (participants.some((p) => p.isPinned)) {
+          // Pinned layout - main video takes 70% width
+          const mainWidth = canvas.width * 0.7;
+          const mainHeight = canvas.height;
+
+          if (mainParticipant && !mainParticipant.isCameraOff) {
+            const videoElement = mainParticipant.isCurrentUser
+              ? localVideoRef.current
+              : videoRefs.current[mainParticipant.userId] ||
+                document.getElementById(mainParticipant.userId);
+
+            if (videoElement && videoElement.videoWidth > 0) {
+              ctx.drawImage(videoElement, 0, 0, mainWidth, mainHeight);
+            }
+          } else {
+            // Draw avatar placeholder for main participant
+            drawAvatarPlaceholder(
+              ctx,
+              mainWidth / 2,
+              mainHeight / 2,
+              100,
+              mainParticipant?.name || "Unknown"
+            );
+          }
+
+          // Draw other participants in sidebar (30% width)
+          const sidebarX = mainWidth;
+          const sidebarWidth = canvas.width * 0.3;
+          const participantHeight =
+            canvas.height / Math.min(participants.length - 1, 4);
+
+          participants
+            .filter((p) => p.participantId !== mainParticipant?.participantId)
+            .slice(0, 4)
+            .forEach((participant, index) => {
+              const y = index * participantHeight;
+
+              if (!participant.isCameraOff) {
+                const videoElement = participant.isCurrentUser
+                  ? localVideoRef.current
+                  : videoRefs.current[participant.userId] ||
+                    document.getElementById(participant.userId);
+
+                if (videoElement && videoElement.videoWidth > 0) {
+                  ctx.drawImage(
+                    videoElement,
+                    sidebarX,
+                    y,
+                    sidebarWidth,
+                    participantHeight
+                  );
+                }
+              } else {
+                // Draw avatar placeholder
+                drawAvatarPlaceholder(
+                  ctx,
+                  sidebarX + sidebarWidth / 2,
+                  y + participantHeight / 2,
+                  50,
+                  participant.name
+                );
+              }
+            });
+        } else {
+          // Grid layout
+          const cols = Math.ceil(Math.sqrt(participants.length));
+          const rows = Math.ceil(participants.length / cols);
+          const cellWidth = canvas.width / cols;
+          const cellHeight = canvas.height / rows;
+
+          participants.forEach((participant, index) => {
+            const col = index % cols;
+            const row = Math.floor(index / cols);
+            const x = col * cellWidth;
+            const y = row * cellHeight;
+
+            if (!participant.isCameraOff) {
+              const videoElement = participant.isCurrentUser
+                ? localVideoRef.current
+                : videoRefs.current[participant.userId] ||
+                  document.getElementById(participant.userId);
+
+              if (videoElement && videoElement.videoWidth > 0) {
+                ctx.drawImage(videoElement, x, y, cellWidth, cellHeight);
+              }
+            } else {
+              // Draw avatar placeholder
+              drawAvatarPlaceholder(
+                ctx,
+                x + cellWidth / 2,
+                y + cellHeight / 2,
+                Math.min(cellWidth, cellHeight) / 4,
+                participant.name
+              );
+            }
+
+            // Draw participant name overlay
+            ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+            ctx.fillRect(x + 10, y + cellHeight - 40, cellWidth - 20, 30);
+            ctx.fillStyle = "#ffffff";
+            ctx.font = "16px Arial";
+            ctx.fillText(
+              participant.name || "Unknown",
+              x + 15,
+              y + cellHeight - 20
+            );
+          });
+        }
+
+        // Draw recording indicator
+        ctx.fillStyle = "rgba(255, 0, 0, 0.8)";
+        ctx.beginPath();
+        ctx.arc(50, 50, 20, 0, 2 * Math.PI);
+        ctx.fill();
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "bold 14px Arial";
+        ctx.fillText("REC", 80, 55);
+      };
+
+      // Helper function to draw avatar placeholder
+      const drawAvatarPlaceholder = (ctx, x, y, radius, name) => {
+        // Draw circle background
+        ctx.fillStyle = "#6b7280";
+        ctx.beginPath();
+        ctx.arc(x, y, radius, 0, 2 * Math.PI);
+        ctx.fill();
+
+        // Draw initials
+        ctx.fillStyle = "#ffffff";
+        ctx.font = `bold ${radius / 2}px Arial`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        const initials = name
+          ? name
+              .split(" ")
+              .map((n) => n[0])
+              .join("")
+              .toUpperCase()
+          : "?";
+        ctx.fillText(initials, x, y);
+
+        // Reset text alignment
+        ctx.textAlign = "start";
+        ctx.textBaseline = "alphabetic";
+      };
+
+      // Set up MediaRecorder with the combined stream
+      const options = {
+        mimeType: "video/webm;codecs=vp9,opus", // VP9 for video, Opus for audio
+        videoBitsPerSecond: 2500000, // 2.5 Mbps for good quality
+        audioBitsPerSecond: 128000, // 128 kbps for audio
+      };
+
+      // Fallback mime types if VP9 is not supported
+      if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+        if (MediaRecorder.isTypeSupported("video/webm;codecs=vp8,opus")) {
+          options.mimeType = "video/webm;codecs=vp8,opus";
+        } else if (MediaRecorder.isTypeSupported("video/webm")) {
+          options.mimeType = "video/webm";
+        } else {
+          options.mimeType = "video/mp4";
+        }
+      }
+
+      console.log("Using MIME type:", options.mimeType);
+      console.log("Combined stream tracks:", {
+        video: combinedStream.getVideoTracks().length,
+        audio: combinedStream.getAudioTracks().length,
+      });
+
+      // Initialize chunks array and recorder
+      const chunks = [];
+      const recorder = new MediaRecorder(combinedStream, options);
+
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          chunks.push(event.data);
+          console.log("Recording chunk received:", event.data.size, "bytes");
+        }
+      };
+
+      recorder.onstop = async () => {
+        console.log("Recording stopped, processing...");
+        console.log("Total chunks collected:", chunks.length);
+        console.log(
+          "Chunk sizes:",
+          chunks.map((chunk) => chunk.size)
+        );
+
+        // Create blob first
+        let blob = null;
+        if (chunks.length > 0) {
+          blob = new Blob(chunks, { type: options.mimeType });
+          console.log("Recording blob created:", {
+            size: blob.size,
+            type: blob.type,
+            chunks: chunks.length,
+          });
+        }
+
+        // Clean up drawing interval (already done in stopRecording, but double check)
+        if (recorder.drawingInterval) {
+          clearInterval(recorder.drawingInterval);
+          recorder.drawingInterval = null;
+        }
+
+        // Process and upload the recording
+        if (blob && blob.size > 0) {
+          try {
+            // Show processing status
+            toast.promise(uploadRecording(blob), {
+              loading: "Processing recording...",
+              success: "Recording processed successfully",
+              error: "Failed to process recording",
+            });
+            // await uploadRecording(blob);
+          } catch (uploadError) {
+            console.error("Error during upload/compression:", uploadError);
+            toast.error("Failed to process recording");
+          }
+        } else {
+          console.error("Recording blob is empty or missing");
+          toast.error("Recording failed - no data captured");
+        }
+
+        // Clean up audio context and sources AFTER upload is complete
+        try {
+          // Disconnect all audio sources
+          if (recorder.audioSources) {
+            recorder.audioSources.forEach((source) => {
+              try {
+                source.disconnect();
+              } catch (e) {
+                console.warn("Error disconnecting audio source:", e);
+              }
+            });
+          }
+
+          if (
+            recorder.audioContext &&
+            recorder.audioContext.state !== "closed"
+          ) {
+            await recorder.audioContext.close();
+          }
+        } catch (error) {
+          console.warn("Error closing audio context:", error);
+        }
+
+        // Clear the MediaRecorder reference
+        setMediaRecorder(null);
+
+        console.log("Recording cleanup completed");
+      };
+
+      recorder.onerror = (event) => {
+        console.error("MediaRecorder error:", event.error);
+        toast.error("Recording error occurred: " + event.error.message);
+      };
+
+      // Wait a bit for the canvas to be ready
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      // Start drawing loop to capture the meeting layout first
+      const drawingInterval = setInterval(drawMeetingLayout, 33); // ~30 FPS
+
+      // Wait for the first frame to be drawn
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      // Start recording
+      recorder.start(1000); // Collect data every second
+
+      // Store references for cleanup
+      recorder.drawingInterval = drawingInterval;
+      recorder.audioSources = audioSources;
+      recorder.audioContext = audioContext;
+
+      setMediaRecorder(recorder);
+      setIsRecording(true);
+      setRecordedChunks([]); // Reset the state but use local chunks array
+      toast.success("Recording started with audio from all participants");
+
+      console.log("Recording started successfully");
+    } catch (error) {
+      console.error("Error starting recording:", error);
+      toast.error("Failed to start recording: " + error.message);
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorder && mediaRecorder.state !== "inactive") {
+      console.log("Stopping recording...");
+
+      // Clear drawing interval immediately
+      if (mediaRecorder.drawingInterval) {
+        clearInterval(mediaRecorder.drawingInterval);
+        mediaRecorder.drawingInterval = null;
+      }
+
+      // Stop the recorder
+      mediaRecorder.stop();
+      setIsRecording(false);
+
+      // Clear the reference
+      // setMediaRecorder(null);
+    }
+  };
+
+  const uploadRecording = async (blob) => {
+    try {
+      // Check blob size before upload
+      if (blob.size === 0) {
+        toast.error("Cannot upload empty recording");
+        return;
+      }
+
+      console.log("Uploading recording blob:", {
+        size: blob.size,
+        type: blob.type,
+      });
+
+      const signatureResponse = await axios.get(`${CLOUD_API_SIGN}`);
+      const { signature, timestamp, cloudName } = signatureResponse.data;
+
+      const formData = new FormData();
+
+      // Determine file extension based on blob type
+      const fileExtension = blob.type.includes("webm") ? "webm" : "mp4";
+      const fileName = `meeting-${meetingCode}-${Date.now()}.${fileExtension}`;
+
+      formData.append("file", blob, fileName);
+      formData.append("meetingCode", meetingCode);
+      formData.append("participantId", localStorage.id);
+      formData.append("recordingType", "video");
+      formData.append("duration", Math.floor(blob.size / (1024 * 1024))); // Approximate duration
+      formData.append("api_key", CLOUD_API);
+      formData.append("timestamp", timestamp);
+      formData.append("signature", signature);
+
+      // Upload the file to Cloudinary
+      const response = await axios.post(
+        `https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`,
+        formData
+      );
+
+      console.log("Recording uploaded successfully:", response.data);
+
+      const res = await API.post("/meeting/upload-recording", {
+        url: response.data.secure_url,
+        meetingCode: meetingCode,
+        participantId: localStorage.id,
+        recordingType: "video",
+        duration: response.data.duration,
+      });
+
+      toast.promise(
+        generateTranscription(response.data.secure_url, meetingCode),
+        {
+          loading: "Generating transcription...",
+          success: "Transcription completed successfully",
+          error: "Transcription failed, but recording was saved",
+        }
+      );
+
+      // toast.success("Recording uploaded successfully");
+      return res.data;
+    } catch (error) {
+      console.error("Error uploading recording:", error);
+      if (error.code === "ECONNABORTED") {
+        toast.error("Upload timeout - file may be too large");
+      } else if (error.response?.status === 413) {
+        toast.error("File too large - please try a shorter recording");
+      } else {
+        toast.error("Failed to upload recording");
+      }
+    }
+  };
+
+  // const compressVideoWithFFmpeg = async (blob) => {
+  //   try {
+  //     console.log("Starting FFmpeg compression...");
+
+  //     // Set a timeout for the entire compression process
+  //     const compressionTimeout = 60000; // 60 seconds
+
+  //     const compressionPromise = (async () => {
+  //       // Import FFmpeg.wasm
+
+  //       const ffmpeg = new FFmpeg();
+  //       console.log("FFmpeg instance created");
+
+  //       // Add progress tracking
+  //       ffmpeg.on("log", ({ message }) => {
+  //         console.log("FFmpeg log:", message);
+  //       });
+
+  //       ffmpeg.on("progress", ({ progress, time }) => {
+  //         const percent = Math.round(progress * 100);
+  //         console.log(`FFmpeg progress: ${percent}% (${time}ms)`);
+
+  //         // Update UI with progress if needed
+  //         if (percent % 10 === 0) {
+  //           // Log every 10%
+  //           toast.info(`Compressing: ${percent}%`);
+  //         }
+  //       });
+
+  //       // Load FFmpeg with timeout
+  //       console.log("Loading FFmpeg core...");
+  //       const baseURL = "https://unpkg.com/@ffmpeg/core@0.12.10/dist/esm";
+
+  //       await ffmpeg.load({
+  //         coreURL: await toBlobURL(
+  //           `${baseURL}/ffmpeg-core.js`,
+  //           "text/javascript"
+  //         ),
+  //         wasmURL: await toBlobURL(
+  //           `${baseURL}/ffmpeg-core.wasm`,
+  //           "application/wasm"
+  //         ),
+  //       });
+
+  //       console.log("FFmpeg loaded successfully");
+
+  //       // Write input file
+  //       console.log("Writing input file to FFmpeg...");
+  //       await ffmpeg.writeFile("input.webm", await fetchFile(blob));
+  //       console.log("Input file written successfully");
+
+  //       // Compress video with more aggressive settings for faster processing
+  //       console.log("Starting FFmpeg compression...");
+  //       await ffmpeg.exec([
+  //         "-i",
+  //         "input.webm",
+  //         "-c:v",
+  //         "libvpx-vp9",
+  //         "-crf",
+  //         "35", // Increased CRF for faster encoding (less quality but smaller file)
+  //         "-b:v",
+  //         "800k", // Reduced bitrate
+  //         "-c:a",
+  //         "libopus",
+  //         "-b:a",
+  //         "64k",
+  //         "-vf",
+  //         "scale=1280:720", // Scale to 720p
+  //         "-r",
+  //         "20", // Reduced frame rate
+  //         "-preset",
+  //         "fast", // Faster encoding preset
+  //         "-threads",
+  //         "4", // Use multiple threads
+  //         "output.webm",
+  //       ]);
+
+  //       console.log("FFmpeg compression completed");
+
+  //       // Read compressed file
+  //       console.log("Reading compressed file...");
+  //       const data = await ffmpeg.readFile("output.webm");
+  //       const compressedBlob = new Blob([data.buffer], { type: "video/webm" });
+
+  //       console.log("Compressed blob created:", {
+  //         originalSize: blob.size,
+  //         compressedSize: compressedBlob.size,
+  //         compressionRatio:
+  //           (((blob.size - compressedBlob.size) / blob.size) * 100).toFixed(1) +
+  //           "%",
+  //       });
+
+  //       return compressedBlob;
+  //     })();
+
+  //     // Race between compression and timeout
+  //     const result = await Promise.race([
+  //       compressionPromise,
+  //       new Promise((_, reject) =>
+  //         setTimeout(
+  //           () => reject(new Error("Compression timeout")),
+  //           compressionTimeout
+  //         )
+  //       ),
+  //     ]);
+
+  //     return result;
+  //   } catch (error) {
+  //     console.error("FFmpeg compression failed:", error);
+
+  //     if (error.message === "Compression timeout") {
+  //       console.log("Compression timed out, using original file");
+  //       toast.warn("Compression timed out, uploading original file");
+  //     } else {
+  //       console.log("Compression failed, using original file");
+  //       toast.warn("Compression failed, uploading original file");
+  //     }
+
+  //     // Return original blob if compression fails or times out
+  //     throw error;
+  //   }
+  // };
+
+  const generateTranscription = async (cloudinaryVideoUrl, meetingId) => {
+    try {
+      const response = await axios.post(
+        "http://localhost:3000/api/transcribe-from-url",
+        {
+          videoUrl: cloudinaryVideoUrl,
+          meetingId,
+          language: "en-US",
+        },
+        {
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
+      console.log("Transcription response:", response.data);
+      // Save transcription to database
+      try {
+        const saveResponse = await API.post("/meeting/save-transcription", {
+          meetingCode: meetingId,
+          transcription: response.data.transcription,
+        });
+
+        console.log("Transcription saved to database:", saveResponse.data);
+
+        // Optionally generate summary
+        // const summaryResponse = await axios.post('http://localhost:3000/api/generate-summary', {
+        //   transcription: response.data.transcription,
+        //   meetingId
+        // });
+
+        // console.log('Meeting Summary:', summaryResponse.data);
+      } catch (dbError) {
+        console.error("Failed to save transcription to database:", dbError);
+        throw new Error(
+          "Transcription completed but failed to save to database"
+        );
+      }
+    } catch (error) {
+      console.error("Error generating transcription:", error);
+      throw error;
+    }
+  };
 
   return (
     <div
@@ -1067,15 +1686,19 @@ export default function VideoCallInterface({
                                 "Setting local stream to video element"
                               );
                               el.srcObject = localStream;
-                              el.play().catch(e => console.warn("Local video play failed:", e));
-
+                              el.play().catch((e) =>
+                                console.warn("Local video play failed:", e)
+                              );
                             }
                           } else {
                             // Set ref for remote participant
                             videoRefs.current[participant.userId] = el;
 
                             // Check if we have a remote stream for this participant
-                            if (remoteStreams[participant.peerId] || remoteStreams[participant.id]) {
+                            if (
+                              remoteStreams[participant.peerId] ||
+                              remoteStreams[participant.id]
+                            ) {
                               console.log(
                                 "Found remote stream for",
                                 participant.name
@@ -1085,22 +1708,33 @@ export default function VideoCallInterface({
                               const stream = new MediaStream();
 
                               // Add video track if available
-                              if (remoteStreams[participant.peerId]?.video || remoteStreams[participant.id].video) {
+                              if (
+                                remoteStreams[participant.peerId]?.video ||
+                                remoteStreams[participant.id].video
+                              ) {
                                 stream.addTrack(
-                                  remoteStreams[participant.peerId]?.video || remoteStreams[participant.id].video
+                                  remoteStreams[participant.peerId]?.video ||
+                                    remoteStreams[participant.id].video
                                 );
                                 console.log("Added video track");
                               }
 
                               // Add audio track if available
-                              if (remoteStreams[participant.peerId]?.audio || remoteStreams[participant.id].audio) {
+                              if (
+                                remoteStreams[participant.peerId]?.audio ||
+                                remoteStreams[participant.id].audio
+                              ) {
                                 stream.addTrack(
-                                  remoteStreams[participant.peerId]?.audio || remoteStreams[participant.id].audio
+                                  remoteStreams[participant.peerId]?.audio ||
+                                    remoteStreams[participant.id].audio
                                 );
                                 console.log("Added audio track");
                               }
 
-                              console.log("Check mediastream: ", stream.getVideoTracks());
+                              console.log(
+                                "Check mediastream: ",
+                                stream.getVideoTracks()
+                              );
                               // Set srcObject only if it's different
                               if (el.srcObject !== stream) {
                                 console.log(
@@ -1135,7 +1769,6 @@ export default function VideoCallInterface({
                                 //     el.parentNode.appendChild(playButton);
                                 //   });
                                 // }, 500);
-
                               }
                             } else {
                               console.log(
@@ -1193,10 +1826,10 @@ export default function VideoCallInterface({
                 className="w-full h-full overflow-y-auto"
               >
                 <TabsList className="w-full">
-                  <TabsTrigger value="chat" className="flex-1">
+                  {/* <TabsTrigger value="chat" className="flex-1">
                     <MessageSquare className="h-4 w-4 mr-2" />
                     Chat
-                  </TabsTrigger>
+                  </TabsTrigger> */}
                   <TabsTrigger value="participants" className="flex-1">
                     <Users className="h-4 w-4 mr-2" />
                     Participants ({participants.length})
@@ -1212,7 +1845,7 @@ export default function VideoCallInterface({
                   <ChevronRight className="h-5 w-5" />
                 </Button>
 
-                <TabsContent
+                {/* <TabsContent
                   value="chat"
                   className="flex-1 flex flex-col p-0 m-0"
                 >
@@ -1284,7 +1917,7 @@ export default function VideoCallInterface({
                       </Button>
                     </div>
                   </form>
-                </TabsContent>
+                </TabsContent> */}
 
                 <TabsContent
                   value="participants"
@@ -1532,7 +2165,7 @@ export default function VideoCallInterface({
             </TooltipProvider>
 
             {/* Screen Share */}
-            <TooltipProvider>
+            {/* <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
@@ -1552,10 +2185,10 @@ export default function VideoCallInterface({
                   {isScreenSharing ? "Stop sharing screen" : "Share screen"}
                 </TooltipContent>
               </Tooltip>
-            </TooltipProvider>
+            </TooltipProvider> */}
 
             {/* Layout Toggle */}
-            <TooltipProvider>
+            {/* <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <DropdownMenu>
@@ -1587,7 +2220,7 @@ export default function VideoCallInterface({
                 </TooltipTrigger>
                 <TooltipContent>Change layout</TooltipContent>
               </Tooltip>
-            </TooltipProvider>
+            </TooltipProvider> */}
 
             {/* Recording */}
             <TooltipProvider>
@@ -1599,7 +2232,9 @@ export default function VideoCallInterface({
                     className={`rounded-full h-12 w-12 ${
                       isRecording ? "animate-pulse" : ""
                     }`}
-                    onClick={() => setIsRecording(!isRecording)}
+                    onClick={() =>
+                      isRecording ? stopRecording() : startRecording()
+                    }
                   >
                     {isRecording ? (
                       <CircleStop className="h-5 w-5 text-red-500" />
@@ -1617,7 +2252,7 @@ export default function VideoCallInterface({
             <div className="h-8 border-l mx-1"></div>
 
             {/* Chat Toggle */}
-            <TooltipProvider>
+            {/* <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
@@ -1644,7 +2279,7 @@ export default function VideoCallInterface({
                     : "Open chat"}
                 </TooltipContent>
               </Tooltip>
-            </TooltipProvider>
+            </TooltipProvider> */}
 
             {/* Participants Toggle */}
             <TooltipProvider>
@@ -1677,7 +2312,7 @@ export default function VideoCallInterface({
             </TooltipProvider>
 
             {/* Settings */}
-            <TooltipProvider>
+            {/* <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Dialog
@@ -1839,7 +2474,7 @@ export default function VideoCallInterface({
                 </TooltipTrigger>
                 <TooltipContent>Settings</TooltipContent>
               </Tooltip>
-            </TooltipProvider>
+            </TooltipProvider> */}
 
             <div className="h-8 border-l mx-1"></div>
 
@@ -1880,7 +2515,11 @@ export default function VideoCallInterface({
                     <PhoneOff className="h-5 w-5" />
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>Leave call</TooltipContent>
+                <TooltipContent>
+                  {getMeetingResponse.host
+                    ? "End call for everyone"
+                    : "Leave call"}
+                </TooltipContent>
               </Tooltip>
             </TooltipProvider>
           </div>
