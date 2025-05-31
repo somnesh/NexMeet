@@ -56,6 +56,7 @@ import { Card } from "@/components/ui/card";
 import API from "/src/api/api.js";
 import { toast } from "sonner";
 import axios from "axios";
+import InviteDialog from "../components/InviteDialog";
 
 export default function VideoCallInterface({
   meetingCode,
@@ -136,8 +137,8 @@ export default function VideoCallInterface({
   const [showJoinRequestPopup, setShowJoinRequestPopup] = useState(true);
   const [currentPopupRequest, setCurrentPopupRequest] = useState(null);
 
-  const CLOUD_API = import.meta.env.VITE_CLOUDINARY_CLOUD_API;
-  const CLOUD_API_SIGN = import.meta.env.VITE_CLOUDINARY_API_SIGN;
+  const MEDIASERVER_URL = import.meta.env.VITE_MEDIA_SERVER_URL;
+  const APP_URL = import.meta.env.VITE_APP_URL;
 
   // Set the current popup request when join requests change
   useEffect(() => {
@@ -1130,8 +1131,14 @@ export default function VideoCallInterface({
         type: blob.type,
       });
 
-      const signatureResponse = await axios.get(`${CLOUD_API_SIGN}`);
-      const { signature, timestamp, cloudName } = signatureResponse.data;
+      const signatureResponse = await axios.get(
+        `${MEDIASERVER_URL}/api/cloudinary-signature`,
+        {
+          withCredentials: true,
+        }
+      );
+      const { signature, timestamp, cloudName, apiKey } =
+        signatureResponse.data;
 
       const formData = new FormData();
 
@@ -1144,7 +1151,7 @@ export default function VideoCallInterface({
       formData.append("participantId", localStorage.id);
       formData.append("recordingType", "video");
       formData.append("duration", Math.floor(blob.size / (1024 * 1024))); // Approximate duration
-      formData.append("api_key", CLOUD_API);
+      formData.append("api_key", apiKey);
       formData.append("timestamp", timestamp);
       formData.append("signature", signature);
 
@@ -1173,7 +1180,6 @@ export default function VideoCallInterface({
         }
       );
 
-      // toast.success("Recording uploaded successfully");
       return res.data;
     } catch (error) {
       console.error("Error uploading recording:", error);
@@ -1186,8 +1192,6 @@ export default function VideoCallInterface({
       }
     }
   };
-
-  // const compressVideoWithFFmpeg = async (blob) => {
   //   try {
   //     console.log("Starting FFmpeg compression...");
 
@@ -1926,10 +1930,10 @@ export default function VideoCallInterface({
                   <div className="p-3">
                     <div className="flex justify-between items-center mb-4">
                       <h3 className="font-medium">In this call</h3>
-                      <Button variant="outline" size="sm" className="h-8">
-                        <UserPlus className="h-4 w-4 mr-1" />
-                        Invite
-                      </Button>
+                      <InviteDialog
+                        meetingCode={meetingCode}
+                        meetingUrl={`${APP_URL}/${meetingCode}`}
+                      />
                     </div>
 
                     {/* Join Requests Section */}
@@ -2223,31 +2227,33 @@ export default function VideoCallInterface({
             </TooltipProvider> */}
 
             {/* Recording */}
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant={isRecording ? "default" : "ghost"}
-                    size="icon"
-                    className={`rounded-full h-12 w-12 ${
-                      isRecording ? "animate-pulse" : ""
-                    }`}
-                    onClick={() =>
-                      isRecording ? stopRecording() : startRecording()
-                    }
-                  >
-                    {isRecording ? (
-                      <CircleStop className="h-5 w-5 text-red-500" />
-                    ) : (
-                      <Disc2 className="h-5 w-5" />
-                    )}
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  {isRecording ? "Stop recording" : "Start recording"}
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+            {getMeetingResponse.host && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant={isRecording ? "default" : "ghost"}
+                      size="icon"
+                      className={`rounded-full h-12 w-12 ${
+                        isRecording ? "animate-pulse" : ""
+                      }`}
+                      onClick={() =>
+                        isRecording ? stopRecording() : startRecording()
+                      }
+                    >
+                      {isRecording ? (
+                        <CircleStop className="h-5 w-5 text-red-500" />
+                      ) : (
+                        <Disc2 className="h-5 w-5" />
+                      )}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    {isRecording ? "Stop recording" : "Start recording"}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
 
             <div className="h-8 border-l mx-1"></div>
 
