@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Video } from "lucide-react";
 import { ProfileMenu } from "./ProfileMenu";
 
-export default function Header() {
+export default function Header({ setPageLoading }) {
   const [currentDateTime, setCurrentDateTime] = useState(new Date());
 
   // Update the date and time every second
@@ -44,31 +44,6 @@ export default function Header() {
           </span>
         </div>
 
-        {/* Desktop Navigation */}
-        {/* <div className="hidden md:flex items-center space-x-6">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-muted-foreground hover:text-foreground"
-          >
-            Features
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-muted-foreground hover:text-foreground"
-          >
-            Pricing
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-muted-foreground hover:text-foreground"
-          >
-            Support
-          </Button>
-        </div> */}
-
         <div className="hidden md:flex items-center space-x-2">
           {/* Date and Time - Desktop */}
           <div className="hidden md:block text-right">
@@ -85,7 +60,7 @@ export default function Header() {
             </>
           )}
 
-          <ProfileMenu />
+          <ProfileMenu setPageLoading={setPageLoading} />
         </div>
 
         {/* Mobile Menu */}
