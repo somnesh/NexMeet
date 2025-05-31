@@ -1,7 +1,6 @@
 package com.nexmeet.dto;
 
 import com.nexmeet.model.MeetingStatus;
-import com.nexmeet.model.Participant;
 import com.nexmeet.model.ParticipantStatus;
 import lombok.AllArgsConstructor;
 import lombok.Data;
