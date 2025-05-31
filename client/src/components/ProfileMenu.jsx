@@ -1,14 +1,4 @@
-import {
-  LogOut,
-  // Settings,
-  // User,
-  SunMoon,
-  Moon,
-  Sun,
-  MessageSquareWarning,
-  // CircleCheck,
-  // CircleX,
-} from "lucide-react";
+import { LogOut, SunMoon, Moon, Sun } from "lucide-react";
 
 import {
   DropdownMenu,
@@ -23,40 +13,15 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-// import {
-//   Dialog,
-//   DialogContent,
-//   DialogDescription,
-//   DialogHeader,
-//   DialogTitle,
-//   DialogTrigger,
-// } from "@/components/ui/dialog";
-
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Link, useNavigate } from "react-router-dom";
-import { useEffect, useState } from "react";
-// import { Textarea } from "./ui/textarea";
-// import { Button } from "./ui/button";
-// import { DialogFooter } from "./ui/dialog";
-// import { toast } from "sonner";
+import { useNavigate } from "react-router-dom";
 import API from "../api/api";
 import useTheme from "../contexts/Theme";
 
 export function ProfileMenu({ setPageLoading }) {
   const { theme, darkTheme, lightTheme } = useTheme();
 
-  // const [isSubmitting, setIsSubmitting] = useState(false);
-  // const [open, setOpen] = useState(false);
-  // const [feedback, setFeedback] = useState("");
-
   const navigate = useNavigate();
-  // const API_URL = import.meta.env.VITE_API_URL;
-
-  useEffect(() => {
-    if (!localStorage.name) {
-      handleLogout();
-    }
-  }, [navigate]);
 
   const switchTheme = (e) => {
     if (theme === "white") {
@@ -67,53 +32,17 @@ export function ProfileMenu({ setPageLoading }) {
   };
   const handleLogout = async () => {
     try {
-      //   setPageLoading(true);
+      setPageLoading(true);
       await API.post(`/auth/logout`);
       localStorage.removeItem("avatar");
       localStorage.removeItem("id");
       localStorage.removeItem("name");
       localStorage.removeItem("email");
       navigate("/login");
-      //   setPageLoading(false);
     } catch (error) {
       console.error("Error during logout: ", error);
     }
   };
-
-  // const handleFeedback = async () => {
-  //   try {
-  //     setIsSubmitting(true);
-
-  //     //   await axios.post(
-  //     //     `${API_URL}/feedback`,
-  //     //     { feedback },
-  //     //     { withCredentials: true }
-  //     //   );
-
-  //     toast(
-  //       <div className="flex gap-2 items-center select-none">
-  //         <CircleCheck className="bg-green-600 rounded-full text-white dark:text-[#242526]" />
-  //         <span>Feedback submitted successfully</span>
-  //       </div>
-  //     );
-  //   } catch (error) {
-  //     console.error(error);
-  //     let msg = "";
-  //     if (error.response) {
-  //       msg = error.response.data.msg;
-  //     }
-
-  //     toast(
-  //       <div className="flex gap-2 items-center">
-  //         <CircleX className="bg-red-600 rounded-full text-white dark:text-[#7f1d1d]" />
-  //         <span>{msg || "Something went wrong"}</span>
-  //       </div>
-  //     );
-  //   } finally {
-  //     setIsSubmitting(false);
-  //     setOpen(false);
-  //   }
-  // };
 
   return (
     <>
@@ -122,9 +51,6 @@ export function ProfileMenu({ setPageLoading }) {
           <DropdownMenu modal={false}>
             <DropdownMenuTrigger asChild>
               <div className="flex items-center gap-2 cursor-pointer hover:bg-[#e3e5e9] active:bg-[#d0d2d6] dark:hover:bg-[#414141] dark:active:bg-[#313131] active:scale-95 select-none px-1  sm:pr-1 py-1 rounded-full">
-                {/* <span className="dark:text-white bg-inherit hover:bg-inherit font-medium hidden sm:block">
-                  {localStorage.name.split(" ")[0]}
-                </span> */}
                 <Avatar>
                   <AvatarImage src={localStorage.avatar} />
                   <AvatarFallback className={"bg-orange-500 stroke-black"}>
@@ -135,23 +61,6 @@ export function ProfileMenu({ setPageLoading }) {
             </DropdownMenuTrigger>
 
             <DropdownMenuContent className="w-48 dark:bg-[#242526]  dark:text-white dark:border-none">
-              {/* <DropdownMenuGroup>
-                <Link to={`/user/${localStorage.username}`}>
-                  <DropdownMenuItem className="dark:focus:bg-[#414141] dark:focus:text-white cursor-pointer">
-                    <User className="mr-2 h-4 w-4 stroke-accent-foreground" />
-                    <span>Profile</span>
-                    <DropdownMenuShortcut>⇧⌘P</DropdownMenuShortcut>
-                  </DropdownMenuItem>
-                </Link>
-                <Link to={"/settings"}>
-                  <DropdownMenuItem className="cursor-pointer dark:focus:bg-[#414141] dark:text-white">
-                    <Settings className="mr-2 h-4 w-4 stroke-accent-foreground" />
-                    <span>Settings</span>
-                    <DropdownMenuShortcut>⌘S</DropdownMenuShortcut>
-                  </DropdownMenuItem>
-                </Link>
-              </DropdownMenuGroup> */}
-
               <DropdownMenuGroup>
                 <DropdownMenuSub className="dark:hover:text-black dark:focus:bg-[#414141]">
                   <DropdownMenuSubTrigger className="cursor-pointer dark:focus:bg-[#414141]">
@@ -200,13 +109,6 @@ export function ProfileMenu({ setPageLoading }) {
                     </DropdownMenuSubContent>
                   </DropdownMenuPortal>
                 </DropdownMenuSub>
-                {/* <DropdownMenuItem
-                  onClick={setOpen}
-                  className="cursor-pointer dark:focus:bg-[#414141] dark:text-white"
-                >
-                  <MessageSquareWarning className="mr-2 h-4 w-4 stroke-accent-foreground" />
-                  <span>Feedback</span>
-                </DropdownMenuItem> */}
               </DropdownMenuGroup>
 
               <DropdownMenuItem
@@ -219,42 +121,6 @@ export function ProfileMenu({ setPageLoading }) {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-
-          {/* <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger></DialogTrigger>
-            <DialogContent className={"gap-0"}>
-              <form
-                className="space-y-4"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                }}
-              >
-                <DialogHeader>
-                  <DialogTitle>Leave Feedback</DialogTitle>
-                  <DialogDescription>
-                    We'd love to hear what went well or how we can improve the
-                    product experience.
-                  </DialogDescription>
-                </DialogHeader>
-                <Textarea
-                  className="min-h-[100px] resize-none bg-background"
-                  placeholder="Your feedback"
-                  value={feedback}
-                  onChange={(e) => setFeedback(e.target.value)}
-                  required
-                />
-                <DialogFooter className="gap-2 sm:gap-0">
-                  <Button
-                    type="submit"
-                    onClick={handleFeedback}
-                    disabled={isSubmitting}
-                  >
-                    {isSubmitting ? "Submitting..." : "Submit Feedback"}
-                  </Button>
-                </DialogFooter>
-              </form>
-            </DialogContent>
-          </Dialog> */}
         </>
       )}
     </>
