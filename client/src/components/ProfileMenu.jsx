@@ -1,13 +1,13 @@
 import {
   LogOut,
-  Settings,
-  User,
+  // Settings,
+  // User,
   SunMoon,
   Moon,
   Sun,
   MessageSquareWarning,
-  CircleCheck,
-  CircleX,
+  // CircleCheck,
+  // CircleX,
 } from "lucide-react";
 
 import {
@@ -23,34 +23,34 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+// import {
+//   Dialog,
+//   DialogContent,
+//   DialogDescription,
+//   DialogHeader,
+//   DialogTitle,
+//   DialogTrigger,
+// } from "@/components/ui/dialog";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Link, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
-import { Textarea } from "./ui/textarea";
-import { Button } from "./ui/button";
-import { DialogFooter } from "./ui/dialog";
-import { toast } from "sonner";
+// import { Textarea } from "./ui/textarea";
+// import { Button } from "./ui/button";
+// import { DialogFooter } from "./ui/dialog";
+// import { toast } from "sonner";
 import API from "../api/api";
 import useTheme from "../contexts/Theme";
 
 export function ProfileMenu({ setPageLoading }) {
   const { theme, darkTheme, lightTheme } = useTheme();
 
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [open, setOpen] = useState(false);
-  const [feedback, setFeedback] = useState("");
+  // const [isSubmitting, setIsSubmitting] = useState(false);
+  // const [open, setOpen] = useState(false);
+  // const [feedback, setFeedback] = useState("");
 
   const navigate = useNavigate();
-  const API_URL = import.meta.env.VITE_API_URL;
+  // const API_URL = import.meta.env.VITE_API_URL;
 
   useEffect(() => {
     if (!localStorage.name) {
@@ -80,40 +80,40 @@ export function ProfileMenu({ setPageLoading }) {
     }
   };
 
-  const handleFeedback = async () => {
-    try {
-      setIsSubmitting(true);
+  // const handleFeedback = async () => {
+  //   try {
+  //     setIsSubmitting(true);
 
-      //   await axios.post(
-      //     `${API_URL}/feedback`,
-      //     { feedback },
-      //     { withCredentials: true }
-      //   );
+  //     //   await axios.post(
+  //     //     `${API_URL}/feedback`,
+  //     //     { feedback },
+  //     //     { withCredentials: true }
+  //     //   );
 
-      toast(
-        <div className="flex gap-2 items-center select-none">
-          <CircleCheck className="bg-green-600 rounded-full text-white dark:text-[#242526]" />
-          <span>Feedback submitted successfully</span>
-        </div>
-      );
-    } catch (error) {
-      console.error(error);
-      let msg = "";
-      if (error.response) {
-        msg = error.response.data.msg;
-      }
+  //     toast(
+  //       <div className="flex gap-2 items-center select-none">
+  //         <CircleCheck className="bg-green-600 rounded-full text-white dark:text-[#242526]" />
+  //         <span>Feedback submitted successfully</span>
+  //       </div>
+  //     );
+  //   } catch (error) {
+  //     console.error(error);
+  //     let msg = "";
+  //     if (error.response) {
+  //       msg = error.response.data.msg;
+  //     }
 
-      toast(
-        <div className="flex gap-2 items-center">
-          <CircleX className="bg-red-600 rounded-full text-white dark:text-[#7f1d1d]" />
-          <span>{msg || "Something went wrong"}</span>
-        </div>
-      );
-    } finally {
-      setIsSubmitting(false);
-      setOpen(false);
-    }
-  };
+  //     toast(
+  //       <div className="flex gap-2 items-center">
+  //         <CircleX className="bg-red-600 rounded-full text-white dark:text-[#7f1d1d]" />
+  //         <span>{msg || "Something went wrong"}</span>
+  //       </div>
+  //     );
+  //   } finally {
+  //     setIsSubmitting(false);
+  //     setOpen(false);
+  //   }
+  // };
 
   return (
     <>
@@ -135,7 +135,7 @@ export function ProfileMenu({ setPageLoading }) {
             </DropdownMenuTrigger>
 
             <DropdownMenuContent className="w-48 dark:bg-[#242526]  dark:text-white dark:border-none">
-              <DropdownMenuGroup>
+              {/* <DropdownMenuGroup>
                 <Link to={`/user/${localStorage.username}`}>
                   <DropdownMenuItem className="dark:focus:bg-[#414141] dark:focus:text-white cursor-pointer">
                     <User className="mr-2 h-4 w-4 stroke-accent-foreground" />
@@ -150,7 +150,7 @@ export function ProfileMenu({ setPageLoading }) {
                     <DropdownMenuShortcut>⌘S</DropdownMenuShortcut>
                   </DropdownMenuItem>
                 </Link>
-              </DropdownMenuGroup>
+              </DropdownMenuGroup> */}
 
               <DropdownMenuGroup>
                 <DropdownMenuSub className="dark:hover:text-black dark:focus:bg-[#414141]">
@@ -200,13 +200,13 @@ export function ProfileMenu({ setPageLoading }) {
                     </DropdownMenuSubContent>
                   </DropdownMenuPortal>
                 </DropdownMenuSub>
-                <DropdownMenuItem
+                {/* <DropdownMenuItem
                   onClick={setOpen}
                   className="cursor-pointer dark:focus:bg-[#414141] dark:text-white"
                 >
                   <MessageSquareWarning className="mr-2 h-4 w-4 stroke-accent-foreground" />
                   <span>Feedback</span>
-                </DropdownMenuItem>
+                </DropdownMenuItem> */}
               </DropdownMenuGroup>
 
               <DropdownMenuItem
@@ -220,7 +220,7 @@ export function ProfileMenu({ setPageLoading }) {
             </DropdownMenuContent>
           </DropdownMenu>
 
-          <Dialog open={open} onOpenChange={setOpen}>
+          {/* <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger></DialogTrigger>
             <DialogContent className={"gap-0"}>
               <form
@@ -254,7 +254,7 @@ export function ProfileMenu({ setPageLoading }) {
                 </DialogFooter>
               </form>
             </DialogContent>
-          </Dialog>
+          </Dialog> */}
         </>
       )}
     </>
