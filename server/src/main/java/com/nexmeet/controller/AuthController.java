@@ -15,11 +15,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.client.HttpClientErrorException;
 
 import javax.security.auth.login.CredentialException;
 import java.util.Optional;
-
 
 @RestController
 @RequestMapping("/api/auth")
@@ -35,34 +33,31 @@ public class AuthController {
 
     @PostMapping("/register")
     public ResponseEntity<AuthResponse> register(@RequestBody RegisterRequest request, HttpServletResponse response) {
-        return ResponseEntity.ok(authService.register(request, response));
+        return ResponseEntity.status(HttpStatus.CREATED).body(authService.register(request, response));
     }
 
-//    @PostMapping("/lol")
-//    public ResponseEntity<String> login() {
-//        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-//        System.out.println("LOL: "+authentication.getAuthorities());
-//        return ResponseEntity.ok("everything is ok");
-//    }
-
     @PostMapping("/login")
-    public ResponseEntity<AuthResponse> login(@RequestBody LoginRequest request, HttpServletResponse response) throws CredentialException {
+    public ResponseEntity<AuthResponse> login(@RequestBody LoginRequest request, HttpServletResponse response)
+            throws CredentialException {
         return ResponseEntity.ok(authService.login(request, response));
     }
 
     @PostMapping("/access-token")
-    public ResponseEntity<AuthResponse> getAccessToken(@CookieValue(value = "refreshToken", required = false) String token, HttpServletResponse response) throws CredentialException {
+    public ResponseEntity<AuthResponse> getAccessToken(
+            @CookieValue(value = "refreshToken", required = false) String token, HttpServletResponse response)
+            throws CredentialException {
         return ResponseEntity.ok(authService.getAccessToken(token, response));
     }
-    
+
     @GetMapping("/validate-token")
-    public ResponseEntity<?> validateToken(@CookieValue(value = "accessToken", required = false) String token, HttpServletResponse response) throws CredentialException {
+    public ResponseEntity<?> validateToken(@CookieValue(value = "accessToken", required = false) String token,
+            HttpServletResponse response) throws CredentialException {
         if (token == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid token");
         }
-        
+
         String email = JwtUtil.extractEmail(token);
-        
+
         if (!JwtUtil.isTokenValid(token, email)) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid token");
         }
@@ -71,9 +66,10 @@ public class AuthController {
     }
 
     @PostMapping("/logout")
-    public ResponseEntity<String> logout(HttpServletRequest request, @CookieValue(value = "accessToken", required = false) String accessToken,
-                                         @CookieValue(value = "refreshToken", required = false) String refreshToken,
-                                         HttpServletResponse response) {
+    public ResponseEntity<String> logout(HttpServletRequest request,
+            @CookieValue(value = "accessToken", required = false) String accessToken,
+            @CookieValue(value = "refreshToken", required = false) String refreshToken,
+            HttpServletResponse response) {
         // Remove refresh token from the database
         if (refreshToken != null) {
             Optional<User> userOpt = userRepository.findByRefreshToken(refreshToken);
@@ -111,4 +107,3 @@ public class AuthController {
         response.addCookie(cookie);
     }
 }
-
