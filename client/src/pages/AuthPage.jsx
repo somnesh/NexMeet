@@ -47,6 +47,7 @@ export default function AuthPage() {
   const navigate = useNavigate();
   const API_URL = import.meta.env.VITE_API_URL;
   const SERVER_URL = import.meta.env.VITE_SERVER_URL;
+  const MEDIA_SERVER_URL = import.meta.env.VITE_MEDIA_SERVER_URL;
 
   // Add a function to handle tab changes
   const handleTabChange = (value) => {
@@ -122,40 +123,44 @@ export default function AuthPage() {
     }
 
     setIsSigningUp(true);
-    toast.promise(signUpAPI(signUpName, signUpEmail, signUpPassword), {
-      loading: "Creating account...",
-      success: "Account created successfully!",
+    toast.promise(generateOTP(signUpName, signUpEmail, signUpPassword), {
+      loading: "Generating OTP...",
+      success: "OTP sent successfully! Please check your email.",
       error: (error) => {
-        return error.response?.data?.msg || "An error occurred";
+        return (
+          error.response?.data?.msg || "An error occurred while generating OTP"
+        );
       },
     });
   };
 
-  const signUpAPI = async (name, email, password) => {
+  const generateOTP = async (name, email, password) => {
     try {
-      const response = await axios.post(
-        `${API_URL}/auth/register`,
-        {
-          name,
-          email,
-          password,
-        },
-        { withCredentials: true }
-      );
+      await axios.post(`${MEDIA_SERVER_URL}/api/otp/request`, {
+        email,
+        name,
+        purpose: "signup",
+      });
 
-      console.log(response.data);
-      localStorage.setItem("avatar", response.data.avatar);
-      localStorage.setItem("id", response.data.id);
-      localStorage.setItem("name", response.data.name);
-      localStorage.setItem("email", response.data.email);
-      if (response.status === 201) {
-        navigate("/");
-      }
+      const userObject = {
+        name: name,
+        email: email,
+        password: password,
+      };
+
+      // Set session flag to indicate valid signup flow
+      sessionStorage.setItem("signup_flow_active", "true");
+      sessionStorage.setItem("signup_timestamp", Date.now().toString());
+
+      navigate("/verify/otp", { state: { user: userObject } });
     } catch (error) {
-      if (error.response && error.response.status === 409) {
-        setSignUpError("Email already exists");
+      console.error("Error generating OTP:", error);
+      if (error.response && error.response.status === 429) {
+        setSignUpError("Too many requests. Please try again later.");
+        throw new Error("Too many requests. Please try again later.");
       } else {
-        setSignUpError("An error occurred while signing up");
+        setSignUpError("An error occurred while generating OTP");
+        throw new Error("An error occurred while generating OTP");
       }
     } finally {
       setIsSigningUp(false);
@@ -255,7 +260,7 @@ export default function AuthPage() {
                   <div className="flex items-center justify-between">
                     <Label htmlFor="signin-password">Password</Label>
                     <a
-                      href="#"
+                      href="/forgot-password"
                       className="text-xs text-primary hover:underline"
                     >
                       Forgot password?
