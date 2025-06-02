@@ -103,7 +103,7 @@ export default function HomePage() {
       localStorage.removeItem("id");
       localStorage.removeItem("name");
       localStorage.removeItem("email");
-      navigate("/login");
+      navigate("/login", { replace: true });
     }
     setLoading(false);
   };
@@ -133,13 +133,13 @@ export default function HomePage() {
     }
 
     if (meetingCode.length === 10) {
-      const cleanedCode = meetingCode.trim();
+      const cleanedCode = meetingCode.toLowerCase().trim();
       formattedCode = `${cleanedCode.slice(0, 3)}-${cleanedCode.slice(
         3,
         7
       )}-${cleanedCode.slice(7, 10)}`;
     } else {
-      formattedCode = meetingCode;
+      formattedCode = meetingCode.toLowerCase().trim();
     }
 
     setIsJoining(true);
@@ -384,11 +384,11 @@ export default function HomePage() {
               <div className="container mx-auto max-w-6xl">
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
                   <div className="space-y-6">
-                    <h1 className="text-4xl md:text-5xl font-bold tracking-tight animate-in fade-in slide-in-from-left-4 duration-700 fill-mode-both">
+                    <h1 className="text-3xl md:text-5xl font-bold tracking-tight animate-in fade-in slide-in-from-left-4 duration-700 fill-mode-both">
                       Connect with anyone,{" "}
                       <span className="text-primary">anywhere</span>
                     </h1>
-                    <p className="text-xl text-muted-foreground animate-in fade-in slide-in-from-left-4 duration-700 delay-100 fill-mode-both">
+                    <p className="md:text-xl text-muted-foreground animate-in fade-in slide-in-from-left-4 duration-700 delay-100 fill-mode-both">
                       High-quality video meetings for teams and individuals.
                       Join or start a meeting with a single click.
                     </p>
@@ -405,7 +405,7 @@ export default function HomePage() {
                             placeholder="Enter meeting code (e.g., abc-mnop-xyz or abcmnopxyz)"
                             value={meetingCode}
                             onChange={(e) => setMeetingCode(e.target.value)}
-                            className={`h-12 text-base ${
+                            className={`h-12 md:text-base text-sm ${
                               codeError ? "border-destructive" : ""
                             }`}
                           />
@@ -640,9 +640,13 @@ export default function HomePage() {
           <footer className="py-8 px-4 sm:px-6 border-t">
             <div className="container mx-auto max-w-6xl">
               <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-                <div className="flex items-center space-x-2">
-                  <div className="bg-primary rounded-md p-1.5">
-                    <Video className="h-5 w-5 text-primary-foreground" />
+                <div className="flex items-center">
+                  <div className="p-1.5">
+                    <img
+                      src="/icon-512x512.png"
+                      alt="NexMeet Logo"
+                      className="h-8 w-8 object-cover rounded-full"
+                    />
                   </div>
                   <span className="font-bold text-lg">NexMeet</span>
                 </div>
