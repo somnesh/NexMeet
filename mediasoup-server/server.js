@@ -16,6 +16,11 @@ const axios = require("axios");
 const fs = require("fs");
 const path = require("path");
 const { verifyToken } = require("./middleware/verrifyToken");
+const otpRoutes = require("./routes/otpRoutes");
+const {
+  otpRateLimiter,
+  verificationRateLimiter,
+} = require("./middleware/rateLimiter");
 
 // Initialize Express app
 const app = express();
@@ -26,6 +31,7 @@ app.use(
   })
 );
 app.use(express.json());
+app.use(express.static("/mediasoup-server/public"));
 
 const server = http.createServer(app);
 const io = socketIO(server, {
@@ -348,6 +354,11 @@ io.on("connection", async (socket) => {
 app.get("/health", (req, res) => {
   res.status(200).json({ status: "ok" });
 });
+
+// Import OTP service and routes
+app.use("/api/otp/request", otpRateLimiter);
+app.use("/api/otp/verify", verificationRateLimiter);
+app.use("/api/otp", otpRoutes);
 
 // API endpoint to get room info
 app.get("/api/rooms/:roomId", (req, res) => {
