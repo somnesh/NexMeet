@@ -1714,11 +1714,11 @@ export default function VideoCallInterface({
                               // Add video track if available
                               if (
                                 remoteStreams[participant.peerId]?.video ||
-                                remoteStreams[participant.id].video
+                                remoteStreams[participant.id]?.video
                               ) {
                                 stream.addTrack(
                                   remoteStreams[participant.peerId]?.video ||
-                                    remoteStreams[participant.id].video
+                                    remoteStreams[participant.id]?.video
                                 );
                                 console.log("Added video track");
                               }
@@ -1726,11 +1726,11 @@ export default function VideoCallInterface({
                               // Add audio track if available
                               if (
                                 remoteStreams[participant.peerId]?.audio ||
-                                remoteStreams[participant.id].audio
+                                remoteStreams[participant.id]?.audio
                               ) {
                                 stream.addTrack(
                                   remoteStreams[participant.peerId]?.audio ||
-                                    remoteStreams[participant.id].audio
+                                    remoteStreams[participant.id]?.audio
                                 );
                                 console.log("Added audio track");
                               }
