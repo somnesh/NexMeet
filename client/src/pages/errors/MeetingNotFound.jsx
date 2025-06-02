@@ -6,8 +6,6 @@ import { useNavigate } from "react-router-dom";
 
 export default function MeetingNotFound() {
   const [isMobile, setIsMobile] = useState(false);
-  const [meetingCode, setMeetingCode] = useState("meet-xyzw-123");
-  const [copied, setCopied] = useState(false);
 
   const navigate = useNavigate();
   const APP_URL = import.meta.env.VITE_APP_URL;
@@ -24,19 +22,6 @@ export default function MeetingNotFound() {
       window.removeEventListener("resize", checkIfMobile);
     };
   }, []);
-
-  // Copy meeting code to clipboard
-  const copyMeetingCode = () => {
-    navigator.clipboard.writeText(meetingCode);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  // Create new meeting
-  const createNewMeeting = () => {
-    // In a real app, this would generate a new meeting ID and redirect
-    alert("Creating a new meeting...");
-  };
 
   return (
     <div className="min-h-screen bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100">
@@ -58,13 +43,13 @@ export default function MeetingNotFound() {
           <div className="space-y-4">
             <Button
               variant="outline"
-              className="w-fit px-4 cursor-pointer py-6 rounded-full border-gray-300 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800"
+              className="w-fit cursor-pointer py-6 rounded-full border-gray-300 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800"
               onClick={() => {
-                navigate("/");
+                navigate("/", { replace: true });
               }}
             >
-              <Home className="h-5 w-5 mr-2" />
-              Return to home screen
+              <Home className="h-5 w-5 mr-2 ml-2" />
+              <span className="mr-2">Return to home</span>
             </Button>
           </div>
         </div>
