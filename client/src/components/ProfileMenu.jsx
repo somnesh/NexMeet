@@ -17,11 +17,34 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useNavigate } from "react-router-dom";
 import API from "../api/api";
 import useTheme from "../contexts/Theme";
+import { useEffect } from "react";
 
 export function ProfileMenu({ setPageLoading }) {
   const { theme, darkTheme, lightTheme } = useTheme();
 
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!localStorage.name) {
+      fetchUserData();
+    }
+  }, []);
+
+  const fetchUserData = async () => {
+    try {
+      setPageLoading(true);
+      const response = await API.get(`/oauth/profile`);
+      const { avatar, id, name, email } = response.data;
+      localStorage.setItem("avatar", avatar);
+      localStorage.setItem("id", id);
+      localStorage.setItem("name", name);
+      localStorage.setItem("email", email);
+    } catch (error) {
+      console.error("Error fetching user data: ", error);
+    } finally {
+      setPageLoading(false);
+    }
+  };
 
   const switchTheme = (e) => {
     if (theme === "white") {
