@@ -35,13 +35,15 @@ export default function Header({ setPageLoading }) {
     <header className="w-full py-3 px-4 md:px-6 backdrop-blur-sm bg-background/80">
       <div className="flex items-center justify-between">
         {/* Logo and App Name */}
-        <div className="flex items-center space-x-2">
-          <div className="bg-primary rounded-md p-1.5">
-            <Video className="h-5 w-5 text-primary-foreground" />
+        <div className="flex items-center">
+          <div className=" object-cover p-1.5">
+            <img
+              src="/icon-512x512.png"
+              alt="NexMeet Logo"
+              className="h-8 w-8 object-cover rounded-full"
+            />
           </div>
-          <span className="font-bold text-lg hidden sm:inline-block">
-            NexMeet
-          </span>
+          <span className="font-bold text-lg sm:inline-block">NexMeet</span>
         </div>
 
         <div className="hidden md:flex items-center space-x-2">
@@ -69,6 +71,7 @@ export default function Header({ setPageLoading }) {
           <div className="text-right mr-2">
             <p className="text-xs text-muted-foreground">{formattedTime}</p>
           </div>
+          <ProfileMenu setPageLoading={setPageLoading} />
         </div>
       </div>
     </header>
