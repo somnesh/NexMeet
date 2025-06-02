@@ -2,12 +2,14 @@ import { useEffect, useState } from "react";
 import AuthPage from "./pages/AuthPage";
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import HomePage from "./pages/HomePage";
-import VideoCallInterface from "./pages/VideoCallInterface";
 import { Toaster } from "./components/ui/sonner";
 import { ThemeProvider } from "./contexts/Theme";
-import PreJoinPage from "./pages/PreJoinPage";
 import MeetingPage from "./pages/MeetingPage";
 import MeetingNotFound from "./pages/errors/MeetingNotFound";
+import OTPVerification from "./pages/OTPVerification";
+import SomethingWentWrongPage from "./pages/errors/SomethingWentWrong";
+import BadRequestPage from "./pages/errors/BadRequest";
+import ForgotPassword from "./pages/ForgotPassword";
 
 const router = createBrowserRouter([
   {
@@ -23,8 +25,24 @@ const router = createBrowserRouter([
     element: <MeetingPage />,
   },
   {
+    path: "/verify/otp",
+    element: <OTPVerification />,
+  },
+  {
+    path: "/forgot-password",
+    element: <ForgotPassword />,
+  },
+  {
     path: "/404",
     element: <MeetingNotFound />,
+  },
+  {
+    path: "/400",
+    element: <BadRequestPage />,
+  },
+  {
+    path: "/500",
+    element: <SomethingWentWrongPage />,
   },
 ]);
 
