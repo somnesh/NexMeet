@@ -17,13 +17,13 @@ export default function MeetingPage() {
   useEffect(() => {
     // Check if meeting code is valid
     if (!meetingCode) {
-      navigate("/404");
+      navigate("/404", { replace: true });
     }
     // Validate meeting code format
     const codeRegex = /^([a-zA-Z]{3}-[a-zA-Z]{4}-[a-zA-Z]{3})$/;
     if (!codeRegex.test(meetingCode.trim())) {
       // Redirect to 404 page if meeting code is invalid
-      navigate("/404");
+      navigate("/404", { replace: true });
       return;
     }
 
@@ -42,7 +42,7 @@ export default function MeetingPage() {
         setGetMeetingResponse(res.data);
       }
     } catch (error) {
-      navigate("/404");
+      navigate("/404", { replace: true });
     }
     setLoading(false);
   };
@@ -61,7 +61,10 @@ export default function MeetingPage() {
             />
           )}
           {currentPage === "call" && (
-            <VideoCallInterface meetingCode={meetingCode} getMeetingResponse={getMeetingResponse} />
+            <VideoCallInterface
+              meetingCode={meetingCode}
+              getMeetingResponse={getMeetingResponse}
+            />
           )}
         </>
       )}

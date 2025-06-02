@@ -61,7 +61,7 @@ export function ProfileMenu({ setPageLoading }) {
       localStorage.removeItem("id");
       localStorage.removeItem("name");
       localStorage.removeItem("email");
-      navigate("/login");
+      navigate("/login", { replace: true });
     } catch (error) {
       console.error("Error during logout: ", error);
     }

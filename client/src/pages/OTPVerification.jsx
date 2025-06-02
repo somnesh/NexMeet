@@ -330,7 +330,7 @@ export default function OTPVerification() {
       localStorage.setItem("name", response.data.name);
       localStorage.setItem("email", response.data.email);
       if (response.status === 201) {
-        navigate("/");
+        navigate("/", { replace: true });
       }
     } catch (error) {
       if (error.response && error.response.status === 409) {
@@ -379,7 +379,7 @@ export default function OTPVerification() {
           <Button
             variant="ghost"
             className="transition-all duration-300 active:scale-95 transform cursor-pointer w-fit border-gray-700 border-[1px]"
-            onClick={() => navigate("/login")}
+            onClick={() => navigate("/login", { replace: true })}
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to Login

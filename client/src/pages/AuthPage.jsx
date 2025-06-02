@@ -82,7 +82,7 @@ export default function AuthPage() {
       localStorage.setItem("name", response.data.name);
       localStorage.setItem("email", response.data.email);
       if (response.status === 200) {
-        navigate("/");
+        navigate("/", { replace: true });
       }
     } catch (error) {
       setSignInError("Incorrect email or password");
