@@ -3,6 +3,7 @@ package com.nexmeet.service;
 import com.nexmeet.dto.AuthResponse;
 import com.nexmeet.dto.LoginRequest;
 import com.nexmeet.dto.RegisterRequest;
+import com.nexmeet.dto.ResetPasswordRequest;
 import com.nexmeet.model.Role;
 import com.nexmeet.model.User;
 
@@ -10,6 +11,8 @@ import com.nexmeet.repository.UserRepository;
 import com.nexmeet.util.JwtUtil;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -21,6 +24,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import javax.security.auth.login.CredentialException;
+import java.util.Optional;
 
 @Service
 public class AuthService {
@@ -130,6 +134,22 @@ public class AuthService {
 
         return new AuthResponse(user.getName(), user.getId().toString(), user.getEmail(), user.getAvatar(), accessToken,
                 refreshToken, "Token refreshed");
+    }
+
+    public ResponseEntity<String> verifyEmail(String email, HttpServletResponse response) {
+        Optional<User> user = userRepository.findByEmail(email);
+        if (user.isPresent()) {
+            if (user.get().getPassword() == null) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("It looks like you signed up with Google. To access your account, please use the 'Sign in with Google' option on the login page.");
+            }
+
+            String resetToken = JwtUtil.generateAccessToken(String.valueOf(user.get().getId()), email);
+            setCookie(response, "resetToken", resetToken, 10 * 60);
+
+            return ResponseEntity.ok("User found with email: "+user.get().getEmail());
+        }else{
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Oops! That email doesn’t match any account in our records.");
+        }
     }
 
     private void setCookie(HttpServletResponse response, String name, String value, int maxAge) {
