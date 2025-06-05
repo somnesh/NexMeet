@@ -1,0 +1,2 @@
+ALTER TABLE meetings 
+ADD COLUMN marked_as_deleted BOOLEAN NOT NULL DEFAULT FALSE;
