@@ -3,6 +3,7 @@ package com.nexmeet.controller;
 import com.nexmeet.dto.AuthResponse;
 import com.nexmeet.dto.LoginRequest;
 import com.nexmeet.dto.RegisterRequest;
+import com.nexmeet.dto.ResetPasswordRequest;
 import com.nexmeet.model.User;
 import com.nexmeet.repository.UserRepository;
 import com.nexmeet.service.AuthService;
@@ -14,6 +15,7 @@ import jakarta.servlet.http.HttpSession;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
 import javax.security.auth.login.CredentialException;
@@ -25,10 +27,12 @@ public class AuthController {
 
     private final AuthService authService;
     private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
 
-    public AuthController(AuthService authService, UserRepository userRepository) {
+    public AuthController(AuthService authService, UserRepository userRepository, PasswordEncoder passwordEncoder) {
         this.authService = authService;
         this.userRepository = userRepository;
+        this.passwordEncoder = passwordEncoder;
     }
 
     @PostMapping("/register")
@@ -96,6 +100,30 @@ public class AuthController {
         expireCookie(response, "JSESSIONID.OAuth2");
 
         return ResponseEntity.ok("Logout successful!");
+    }
+
+    @GetMapping("/email/{email}")
+    public ResponseEntity<String> getUserByEmail(@PathVariable String email, HttpServletResponse response) {
+        return authService.verifyEmail(email, response);
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<?> resetPassword(@RequestBody ResetPasswordRequest request, @CookieValue(value = "resetToken", required = false) String resetToken, HttpServletResponse response) {
+        if(resetToken == null || !JwtUtil.isTokenValid(resetToken, request.getEmail())){
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid token");
+        }
+
+        Optional<User> user = userRepository.findByEmail(request.getEmail());
+        if(user.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("User does not exist");
+        }
+
+
+        User userToUpdate = user.get();
+        userToUpdate.setPassword(passwordEncoder.encode(request.getPassword()));
+        userRepository.save(userToUpdate);
+
+        return ResponseEntity.ok("Password reset successful");
     }
 
     private void expireCookie(HttpServletResponse response, String cookieName) {
