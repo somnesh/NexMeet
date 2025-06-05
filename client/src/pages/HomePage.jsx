@@ -8,7 +8,11 @@ import {
   FileText,
   Download,
   EllipsisVertical,
-  LetterText,
+  Shredder,
+  Trash2,
+  FileX2,
+  Captions,
+  CaptionsOff,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,12 +35,16 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import API from "../api/api";
 import { WholePageLoader } from "../components/loaders/WholePageLoader.jsx";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import Header from "../components/Header";
 import MeetingsLoader from "../components/loaders/MeetingLoader";
 import { toast } from "sonner";
 import MarkdownDialog from "../components/MarkdownViewer";
 import InviteDialog from "../components/InviteDialog";
+import { DropdownMenuSeparator } from "../components/ui/dropdown-menu";
+import axios from "axios";
+import useTheme from "../contexts/Theme";
+import { Footer } from "../components/footer";
 
 export default function HomePage() {
   const [meetingCode, setMeetingCode] = useState("");
@@ -52,7 +60,9 @@ export default function HomePage() {
   const [openSummary, setOpenSummary] = useState(false);
 
   const APP_URL = import.meta.env.VITE_APP_URL;
+  const MEDIA_SERVER_URL = import.meta.env.VITE_MEDIA_SERVER_URL;
   const navigate = useNavigate();
+  const { theme } = useTheme();
 
   useEffect(() => {
     // Check URL parameters
@@ -238,6 +248,8 @@ export default function HomePage() {
         mediaRoomId: meeting.mediaRoomId,
         createdAt: meeting.createdAt,
         recordingUrl: meeting.recordingUrl,
+        transcriptionId: meeting.transcriptionId,
+        summaryId: meeting.summaryId,
         host: meeting.host,
         startTime: meeting.startTime,
         endTime: meeting.endTime,
@@ -314,6 +326,19 @@ export default function HomePage() {
       const formattedSummary = formatSummary(response.data);
       console.log("Formatted Summary:", formattedSummary);
 
+      // Cheeck if the summaryId in the meeting object is null or not (if null update the summaryId in the meeting object)
+      if (!meeting.summaryId) {
+        // Update the meeting object with the summaryId
+        setRecentMeetings((prevMeetings) =>
+          prevMeetings.map((m) => {
+            if (m.id === meeting.id) {
+              return { ...m, summaryId: response.data.summaryId };
+            }
+            return m;
+          })
+        );
+      }
+
       setOpenSummary(true);
       setMeetingSummaryResponse(response.data);
       setMeetingSummary(formattedSummary);
@@ -367,6 +392,82 @@ export default function HomePage() {
     } catch (error) {
       console.error("Failed to download transcription:", error);
       toast.error("Failed to download transcription.");
+    }
+  };
+
+  const handleDeleteMeeting = async (meetingId) => {
+    try {
+      const response = await API.delete(`/meeting/${meetingId}`);
+      if (response.status === 200) {
+        setRecentMeetings((prevMeetings) =>
+          prevMeetings.filter((meeting) => meeting.id !== meetingId)
+        );
+      }
+    } catch (error) {
+      console.error("Failed to delete meeting:", error);
+      throw new Error("Failed to delete meeting");
+    }
+  };
+
+  const handleDeleteRecording = async (publicURL) => {
+    console.log("Deleting recording:", publicURL);
+    try {
+      const publicId = publicURL.split("/").slice(-2)[1].split(".")[0];
+      const response = await axios.delete(
+        `${MEDIA_SERVER_URL}/api/delete-recording/${publicId}`,
+        {
+          withCredentials: true,
+        }
+      );
+
+      if (response.status === 200) {
+        setRecentMeetings((prevMeetings) =>
+          prevMeetings.map((meeting) => {
+            if (meeting.recordingUrl === publicURL) {
+              return { ...meeting, recordingUrl: null };
+            }
+            return meeting;
+          })
+        );
+      }
+    } catch (error) {
+      console.error("Failed to delete recording:", error);
+      throw new Error("Failed to delete recording");
+    }
+  };
+
+  const handleDeleteTranscription = async (transcriptionId) => {
+    try {
+      await API.delete(`/meeting/transcription/${transcriptionId}`);
+      setRecentMeetings((prevMeetings) =>
+        prevMeetings.map((meeting) => {
+          if (meeting.transcriptionId === transcriptionId) {
+            return { ...meeting, transcriptionId: null };
+          }
+          return meeting;
+        })
+      );
+    } catch (error) {
+      console.error("Failed to delete transcription:", error);
+      throw new Error("Failed to delete transcription");
+    }
+  };
+
+  const handleDeleteSummary = async (summaryId) => {
+    try {
+      await API.delete(`/meeting/summary/${summaryId}`);
+      setRecentMeetings((prevMeetings) =>
+        prevMeetings.map((meeting) => {
+          if (meeting.summaryId === summaryId) {
+            return { ...meeting, summaryId: null };
+          }
+          return meeting;
+        })
+      );
+      setMeetingSummary(null);
+    } catch (error) {
+      console.error("Failed to delete summary:", error);
+      throw new Error("Failed to delete summary");
     }
   };
 
@@ -444,22 +545,6 @@ export default function HomePage() {
                       {isCreating ? "Creating..." : "Create New Meeting"}
                     </Button>
                   </div>
-
-                  {/*<div className="relative rounded-xl overflow-hidden border shadow-xl animate-in fade-in slide-in-from-right-4 duration-700 fill-mode-both">*/}
-                  {/*  <div className="aspect-video bg-muted/30 relative">*/}
-                  {/*    <div className="absolute inset-0 flex items-center justify-center">*/}
-                  {/*      <div className="text-center p-6">*/}
-                  {/*        <Video className="h-16 w-16 mx-auto text-primary mb-4 opacity-80" />*/}
-                  {/*        <h3 className="text-xl font-medium">*/}
-                  {/*          Your video preview will appear here*/}
-                  {/*        </h3>*/}
-                  {/*        <p className="text-muted-foreground mt-2">*/}
-                  {/*          Join a meeting to start your video conference*/}
-                  {/*        </p>*/}
-                  {/*      </div>*/}
-                  {/*    </div>*/}
-                  {/*  </div>*/}
-                  {/*</div>*/}
                 </div>
               </div>
             </section>
@@ -505,24 +590,26 @@ export default function HomePage() {
                                       meeting.recordingUrl ? false : true
                                     }
                                   />
-                                  {meeting.recordingUrl && (
-                                    <DropdownMenu>
-                                      <DropdownMenuTrigger asChild>
-                                        <Button
-                                          variant="ghost"
-                                          size="sm"
-                                          className="h-8 w-8 p-0 hover:bg-muted cursor-pointer"
-                                        >
-                                          <EllipsisVertical className="h-4 w-4" />
-                                          <span className="sr-only">
-                                            Open menu
-                                          </span>
-                                        </Button>
-                                      </DropdownMenuTrigger>
-                                      <DropdownMenuContent
-                                        align="end"
-                                        className="w-56"
+
+                                  <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-8 w-8 p-0 hover:bg-muted cursor-pointer"
                                       >
+                                        <EllipsisVertical className="h-4 w-4" />
+                                        <span className="sr-only">
+                                          Open menu
+                                        </span>
+                                      </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent
+                                      align="end"
+                                      className="w-56"
+                                    >
+                                      {(meeting.transcriptionId ||
+                                        meeting.summaryId) && (
                                         <DropdownMenuItem
                                           onClick={() =>
                                             toast.promise(
@@ -539,8 +626,12 @@ export default function HomePage() {
                                           className="cursor-pointer"
                                         >
                                           <FileText className="mr-2 h-4 w-4" />
-                                          Summary of recording
+                                          {meeting.summaryId
+                                            ? "Summary of recording"
+                                            : "Generate summary"}
                                         </DropdownMenuItem>
+                                      )}
+                                      {meeting.recordingUrl && (
                                         <DropdownMenuItem
                                           onClick={() =>
                                             handleDownloadRecording(meeting)
@@ -550,6 +641,8 @@ export default function HomePage() {
                                           <Download className="mr-2 h-4 w-4" />
                                           Download video recording
                                         </DropdownMenuItem>
+                                      )}
+                                      {meeting.transcriptionId && (
                                         <DropdownMenuItem
                                           onClick={() =>
                                             toast.promise(
@@ -567,12 +660,112 @@ export default function HomePage() {
                                           }
                                           className="cursor-pointer"
                                         >
-                                          <LetterText className="mr-2 h-4 w-4" />
+                                          <Captions className="mr-2 h-4 w-4" />
                                           Download transciption
                                         </DropdownMenuItem>
-                                      </DropdownMenuContent>
-                                    </DropdownMenu>
-                                  )}
+                                      )}
+                                      {(meeting.summaryId ||
+                                        meeting.transcriptionId ||
+                                        meeting.recordingUrl) && (
+                                        <DropdownMenuSeparator />
+                                      )}
+                                      {meeting.summaryId && (
+                                        <DropdownMenuItem
+                                          className="cursor-pointer"
+                                          onClick={() =>
+                                            toast.promise(
+                                              handleDeleteSummary(
+                                                meeting.summaryId
+                                              ),
+                                              {
+                                                loading: "Deleting summary...",
+                                                success:
+                                                  "Summary deleted successfully",
+                                                error:
+                                                  "Failed to delete summary",
+                                              }
+                                            )
+                                          }
+                                        >
+                                          <Shredder className="mr-2 h-4 w-4 text-red-500" />
+                                          <span className="text-red-500">
+                                            Delete summary
+                                          </span>
+                                        </DropdownMenuItem>
+                                      )}
+                                      {meeting.recordingUrl && (
+                                        <DropdownMenuItem
+                                          className="cursor-pointer"
+                                          onClick={() =>
+                                            toast.promise(
+                                              handleDeleteRecording(
+                                                meeting.recordingUrl
+                                              ),
+                                              {
+                                                loading:
+                                                  "Deleting recording...",
+                                                success:
+                                                  "Recording deleted successfully",
+                                                error:
+                                                  "Failed to delete recording",
+                                              }
+                                            )
+                                          }
+                                        >
+                                          <FileX2 className="mr-2 h-4 w-4 text-red-500" />
+                                          <span className="text-red-500">
+                                            Delete recording
+                                          </span>
+                                        </DropdownMenuItem>
+                                      )}
+
+                                      {meeting.transcriptionId && (
+                                        <DropdownMenuItem
+                                          className="cursor-pointer"
+                                          onClick={() =>
+                                            toast.promise(
+                                              handleDeleteTranscription(
+                                                meeting.transcriptionId
+                                              ),
+                                              {
+                                                loading:
+                                                  "Deleting transcription...",
+                                                success:
+                                                  "Transcription deleted successfully",
+                                                error:
+                                                  "Failed to delete transcription",
+                                              }
+                                            )
+                                          }
+                                        >
+                                          <CaptionsOff className="mr-2 h-4 w-4 text-red-500" />
+                                          <span className="text-red-500">
+                                            Delete transcription
+                                          </span>
+                                        </DropdownMenuItem>
+                                      )}
+
+                                      <DropdownMenuItem
+                                        className="cursor-pointer"
+                                        onClick={() =>
+                                          toast.promise(
+                                            handleDeleteMeeting(meeting.id),
+                                            {
+                                              loading: "Deleting meeting...",
+                                              success:
+                                                "Meeting deleted successfully",
+                                              error: "Failed to delete meeting",
+                                            }
+                                          )
+                                        }
+                                      >
+                                        <Trash2 className="mr-2 h-4 w-4 text-red-500" />
+                                        <span className="text-red-500">
+                                          Delete meeting
+                                        </span>
+                                      </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                  </DropdownMenu>
                                 </div>
                               </div>
                             </CardHeader>
@@ -637,59 +830,7 @@ export default function HomePage() {
           </main>
 
           {/* Footer */}
-          <footer className="py-8 px-4 sm:px-6 border-t">
-            <div className="container mx-auto max-w-6xl">
-              <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-                <div className="flex items-center">
-                  <div className="p-1.5">
-                    <img
-                      src="/icon-512x512.png"
-                      alt="NexMeet Logo"
-                      className="h-8 w-8 object-cover rounded-full"
-                    />
-                  </div>
-                  <span className="font-bold text-lg">NexMeet</span>
-                </div>
-
-                <div className="flex flex-wrap justify-center gap-x-8 gap-y-2 text-sm text-muted-foreground">
-                  <a
-                    href="#"
-                    className="hover:text-foreground transition-colors"
-                  >
-                    Features
-                  </a>
-                  <a
-                    href="#"
-                    className="hover:text-foreground transition-colors"
-                  >
-                    Pricing
-                  </a>
-                  <a
-                    href="#"
-                    className="hover:text-foreground transition-colors"
-                  >
-                    Support
-                  </a>
-                  <a
-                    href="#"
-                    className="hover:text-foreground transition-colors"
-                  >
-                    Privacy
-                  </a>
-                  <a
-                    href="#"
-                    className="hover:text-foreground transition-colors"
-                  >
-                    Terms
-                  </a>
-                </div>
-
-                <div className="text-sm text-muted-foreground">
-                  © 2025 NexMeet. All rights reserved.
-                </div>
-              </div>
-            </div>
-          </footer>
+          <Footer />
         </div>
       )}
     </>
