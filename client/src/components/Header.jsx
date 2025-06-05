@@ -1,9 +1,12 @@
 import { useState, useEffect } from "react";
 import { Video } from "lucide-react";
 import { ProfileMenu } from "./ProfileMenu";
+import useTheme from "../contexts/Theme";
 
 export default function Header({ setPageLoading }) {
   const [currentDateTime, setCurrentDateTime] = useState(new Date());
+
+  const { theme } = useTheme();
 
   // Update the date and time every second
   useEffect(() => {
@@ -37,13 +40,26 @@ export default function Header({ setPageLoading }) {
         {/* Logo and App Name */}
         <div className="flex items-center">
           <div className=" object-cover p-1.5">
-            <img
-              src="/icon-512x512.png"
-              alt="NexMeet Logo"
-              className="h-8 w-8 object-cover rounded-full"
-            />
+            {theme === "dark" ? (
+              <img
+                src="/icon-512x512.png"
+                alt="NexMeet Logo"
+                className="h-8 w-8 object-cover rounded-full"
+              />
+            ) : (
+              <img
+                src="/logo-light-mode-512x512.png"
+                alt="NexMeet Logo"
+                className="h-8 w-8 object-cover rounded-full"
+              />
+            )}
           </div>
-          <span className="font-bold text-lg sm:inline-block">NexMeet</span>
+          <span
+            className="font-bold text-lg sm:inline-block"
+            // style={{ fontFamily: "Agbalumo" }}
+          >
+            NexMeet
+          </span>
         </div>
 
         <div className="hidden md:flex items-center space-x-2">
