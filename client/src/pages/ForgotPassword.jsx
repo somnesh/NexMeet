@@ -14,6 +14,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { CustomOtpInput } from "../components/CustomOtpInput";
 import { toast } from "sonner";
 import axios from "axios";
+import API from "/src/api/api.js";
 
 const pageStyles = `
   
@@ -152,24 +153,28 @@ export default function ForgotPassword() {
     setStatus("loading");
 
     try {
-      toast.promise(generateOTP("userUnknown"), {
-        loading: "Generating OTP...",
-        success: () => {
-          setStatus("success");
-          return "OTP sent successfully! Please check your email.";
-        },
-        error: (error) => {
-          return (
-            error.response?.data?.msg ||
-            "An error occurred while generating OTP"
-          );
-        },
-      });
+      const emailVerified = await verifyEmail(email);
+
+      if (emailVerified) {
+        toast.promise(generateOTP("userUnknown"), {
+          loading: "Generating OTP...",
+          success: () => {
+            setStatus("success");
+            return "OTP sent successfully! Please check your email.";
+          },
+          error: (error) => {
+            return (
+                error.response?.data?.msg ||
+                "An error occurred while generating OTP"
+            );
+          },
+        });
+      }
     } catch (error) {
       console.error("Error sending verification email:", error);
       setIsLoading(false);
       setStatus("error");
-      setErrorMessage("Failed to send verification email. Please try again.");
+      setErrorMessage(error.response?.data || "Failed to send verification email. Please try again.");
       emailInputRef.current?.classList.add("animate-shake");
       setTimeout(
         () => emailInputRef.current?.classList.remove("animate-shake"),
@@ -179,6 +184,34 @@ export default function ForgotPassword() {
       setIsLoading(false);
     }
   };
+
+  const verifyEmail = async (email) => {
+    try{
+      const req = toast.promise(API.get(`/auth/email/${email}`,{withCredentials: true}),{
+        loading: "Verifying email address...",
+        success: () => {
+          return "Verification successful!"
+        },
+        error: (error) => {
+          console.log("Verification email failed with error:", error);
+          setStatus("error");
+          setErrorMessage(error.response?.data);
+          return (
+              error.response?.data ||
+              "An error occurred while verifying your email address"
+          )
+        }
+      });
+
+      const res = await req.unwrap();
+      if (res.status === 200) {
+        return true;
+      }
+    }catch(error) {
+      console.error(error);
+      throw error;
+    }
+  }
 
   const generateOTP = async (name) => {
     try {
