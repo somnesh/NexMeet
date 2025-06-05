@@ -162,10 +162,22 @@ export function CustomOtpInput({ name, email }) {
       setIsLoading(false);
       if (response.data.success) {
         setVerificationStatus("success");
-        // setTimeout(() => {
-        //   toast.success("OTP verified successfully!");
-        //   navigate("/login", { replace: true });
-        // }, 1000);
+        toast.promise(
+          new Promise((resolve) => {
+            setTimeout(() => {
+              resolve("Redirecting to reset password...");
+              navigate("/reset-password", {
+                state: { email, name, otp: enteredOtp },
+                replace: true,
+              });
+            }, 1000);
+          }),
+          {
+            loading: "Redirecting to reset password...",
+            success: "Redirecting to reset password...",
+            error: "An error occurred while redirecting.",
+          }
+        );
       }
     } catch (error) {
       console.error("Error verifying OTP:", error);
