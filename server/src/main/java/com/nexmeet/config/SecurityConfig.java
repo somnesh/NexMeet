@@ -1,7 +1,6 @@
 package com.nexmeet.config;
 
 import com.nexmeet.security.CustomAuthenticationProvider;
-import com.nexmeet.security.JwtAuthenticationEntryPoint;
 import com.nexmeet.security.JwtFilter;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -43,19 +42,14 @@ public class SecurityConfig {
                         .requestMatchers("/api/admin/**").hasAuthority("ROLE_ADMIN")
                         .anyRequest().authenticated())
                 .oauth2Login(oauth2 -> oauth2
+                        .loginPage("/oauth2/authorization/google")
                         .defaultSuccessUrl("/api/oauth/google-success", true))
                 .exceptionHandling(exceptions -> exceptions
                         .authenticationEntryPoint((request, response, authException) -> {
-                            // Check if the request is an API request
-                            if (request.getRequestURI().startsWith("/api/")) {
-                                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-                                response.setContentType("application/json");
-                                response.getWriter()
-                                        .write("{\"error\":\"Unauthorized\",\"message\":\"Authentication required\"}");
-                            } else {
-                                // For non-API requests, redirect to login page
-                                response.sendRedirect("/oauth2/authorization/google");
-                            }
+                            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                            response.setContentType("application/json");
+                            response.getWriter()
+                                    .write("{\"error\":\"Unauthorized\",\"message\":\"Authentication required\"}");
                         }))
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
 
