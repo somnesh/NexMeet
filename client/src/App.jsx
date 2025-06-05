@@ -10,6 +10,8 @@ import OTPVerification from "./pages/OTPVerification";
 import SomethingWentWrongPage from "./pages/errors/SomethingWentWrong";
 import BadRequestPage from "./pages/errors/BadRequest";
 import ForgotPassword from "./pages/ForgotPassword";
+import NexMeetInfoPage from "./pages/NexMeetInfoPage";
+import ResetPassword from "./pages/ResetPassword.jsx";
 
 const router = createBrowserRouter([
   {
@@ -31,6 +33,14 @@ const router = createBrowserRouter([
   {
     path: "/forgot-password",
     element: <ForgotPassword />,
+  },
+  {
+    path: "/info",
+    element: <NexMeetInfoPage />,
+  },
+  {
+    path: "/reset-password",
+    element: <ResetPassword />,
   },
   {
     path: "/404",
