@@ -447,7 +447,8 @@ async function downloadAudioFile(audioUrl) {
 }
 
 // API endpoint for speech-to-text transcription from Cloudinary URL
-app.post("/api/transcribe-from-url", async (req, res) => {
+app.post("/api/transcribe-from-url", verifyToken, async (req, res) => {
+  let audioFilePath = null;
   try {
     const { videoUrl, meetingId, language = "en-US" } = req.body;
 
@@ -464,7 +465,7 @@ app.post("/api/transcribe-from-url", async (req, res) => {
     console.log(`Audio URL: ${audioUrl}`);
 
     // Download audio file
-    const audioFilePath = await downloadAudioFile(audioUrl);
+    audioFilePath = await downloadAudioFile(audioUrl);
     console.log(`Audio file downloaded: ${audioFilePath}`);
 
     // Configure speech recognition
@@ -569,6 +570,10 @@ function performTranscription(recognizer) {
 // API endpoint for AI-powered meeting summary
 app.post("/api/generate-summary", async (req, res) => {
   try {
+    if (req.headers["x-client-id"] !== process.env.CLIENT_ID) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
     const { transcription, meetingId } = req.body;
 
     if (!transcription) {
@@ -706,6 +711,41 @@ app.get("/api/cloudinary-signature", verifyToken, async (req, res) => {
     cloudName: process.env.CLOUDINARY_CLOUD_NAME,
     apiKey: process.env.CLOUDINARY_CLOUD_API,
   });
+});
+
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_CLOUD_API,
+  api_secret: process.env.CLOUDINARY_CLOUD_API_SECRET,
+});
+
+app.delete("/api/delete-recording/:publicId", verifyToken, async (req, res) => {
+  const { publicId } = req.params;
+
+  console.log("Public ID for deletion:", publicId);
+
+  if (!publicId) {
+    return res.status(400).json({ error: "No public ID provided" });
+  }
+
+  try {
+    const result = await cloudinary.uploader.destroy(publicId, {
+      resource_type: "video",
+    });
+    console.log("Cloudinary delete result:", result);
+
+    if (result.result === "ok") {
+      return res.json({
+        success: true,
+        message: "Recording deleted successfully",
+      });
+    } else {
+      return res.status(500).json({ error: "Failed to delete recording" });
+    }
+  } catch (error) {
+    console.error("Error deleting recording:", error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
 });
 
 // Start server
