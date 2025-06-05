@@ -18,6 +18,8 @@ import Header from "../components/Header";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { Footer } from "../components/footer";
+import useTheme from "/src/contexts/Theme.js";
 
 export default function AuthPage() {
   // State for sign in form
@@ -48,6 +50,8 @@ export default function AuthPage() {
   const API_URL = import.meta.env.VITE_API_URL;
   const SERVER_URL = import.meta.env.VITE_SERVER_URL;
   const MEDIA_SERVER_URL = import.meta.env.VITE_MEDIA_SERVER_URL;
+
+  const {theme} = useTheme();
 
   // Add a function to handle tab changes
   const handleTabChange = (value) => {
@@ -190,8 +194,20 @@ export default function AuthPage() {
         >
           <div className="text-center">
             <div className="flex justify-center mb-4">
-              <div className="bg-primary rounded-full p-3">
-                <Video className="h-6 w-6 text-primary-foreground" />
+              <div className="bg-primary dark:bg-white rounded-full p-3">
+                {theme === "dark" ? (
+                    <img
+                        src="/icon-512x512.png"
+                        alt="NexMeet Logo"
+                        className="h-8 w-8 object-cover rounded-full"
+                    />
+                ) : (
+                    <img
+                        src="/logo-light-mode-512x512.png"
+                        alt="NexMeet Logo"
+                        className="h-8 w-8 object-cover rounded-full"
+                    />
+                )}
               </div>
             </div>
             <h1 className="text-2xl font-bold tracking-tight">
@@ -486,6 +502,10 @@ export default function AuthPage() {
             </TabsContent>
           </Tabs>
         </div>
+      </div>
+
+      <div className="mt-11">
+        <Footer />
       </div>
     </div>
   );
