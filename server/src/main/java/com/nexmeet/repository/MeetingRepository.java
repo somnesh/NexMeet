@@ -9,8 +9,9 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface MeetingRepository extends JpaRepository<Meeting, UUID> {
+    @Query("SELECT m FROM Meeting m WHERE m.code = :code and m.markedAsDeleted = false")
     Optional<Meeting> findByCode(String code);
 
-    @Query("SELECT m FROM Meeting m WHERE m.host.id = :userId")
+    @Query("SELECT m FROM Meeting m WHERE m.host.id = :userId and m.markedAsDeleted = false")
     List<Meeting> findAllByHostId(UUID userId);
 }
