@@ -39,6 +39,8 @@ public class Meeting {
     @Column(name = "media_room_id")
     private String mediaRoomId;
 
+    @Column(name = "marked_as_deleted")
+    private boolean markedAsDeleted;
 
     @Column(nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
