@@ -7,22 +7,15 @@ import {
   MessageSquare,
   Users,
   PhoneOff,
-  Settings,
   ChevronRight,
   X,
   Maximize2,
   Minimize2,
-  RepeatIcon as Record,
   Pin,
   PinOff,
   Volume1,
-  Send,
   ScreenShare,
-  ScreenShareOff,
   MonitorUp,
-  Grid,
-  Layout,
-  UserPlus,
   MoreHorizontal,
   Disc2,
   CircleStop,
@@ -45,11 +38,9 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { VideoOffIcon as RecordOff } from "lucide-react";
 import mediaSoupService from "/src/services/mediaSoupService.js";
 import stompService from "/src/services/stompService.js";
 import { Card } from "@/components/ui/card";
@@ -1192,141 +1183,18 @@ export default function VideoCallInterface({
       }
     }
   };
-  //   try {
-  //     console.log("Starting FFmpeg compression...");
-
-  //     // Set a timeout for the entire compression process
-  //     const compressionTimeout = 60000; // 60 seconds
-
-  //     const compressionPromise = (async () => {
-  //       // Import FFmpeg.wasm
-
-  //       const ffmpeg = new FFmpeg();
-  //       console.log("FFmpeg instance created");
-
-  //       // Add progress tracking
-  //       ffmpeg.on("log", ({ message }) => {
-  //         console.log("FFmpeg log:", message);
-  //       });
-
-  //       ffmpeg.on("progress", ({ progress, time }) => {
-  //         const percent = Math.round(progress * 100);
-  //         console.log(`FFmpeg progress: ${percent}% (${time}ms)`);
-
-  //         // Update UI with progress if needed
-  //         if (percent % 10 === 0) {
-  //           // Log every 10%
-  //           toast.info(`Compressing: ${percent}%`);
-  //         }
-  //       });
-
-  //       // Load FFmpeg with timeout
-  //       console.log("Loading FFmpeg core...");
-  //       const baseURL = "https://unpkg.com/@ffmpeg/core@0.12.10/dist/esm";
-
-  //       await ffmpeg.load({
-  //         coreURL: await toBlobURL(
-  //           `${baseURL}/ffmpeg-core.js`,
-  //           "text/javascript"
-  //         ),
-  //         wasmURL: await toBlobURL(
-  //           `${baseURL}/ffmpeg-core.wasm`,
-  //           "application/wasm"
-  //         ),
-  //       });
-
-  //       console.log("FFmpeg loaded successfully");
-
-  //       // Write input file
-  //       console.log("Writing input file to FFmpeg...");
-  //       await ffmpeg.writeFile("input.webm", await fetchFile(blob));
-  //       console.log("Input file written successfully");
-
-  //       // Compress video with more aggressive settings for faster processing
-  //       console.log("Starting FFmpeg compression...");
-  //       await ffmpeg.exec([
-  //         "-i",
-  //         "input.webm",
-  //         "-c:v",
-  //         "libvpx-vp9",
-  //         "-crf",
-  //         "35", // Increased CRF for faster encoding (less quality but smaller file)
-  //         "-b:v",
-  //         "800k", // Reduced bitrate
-  //         "-c:a",
-  //         "libopus",
-  //         "-b:a",
-  //         "64k",
-  //         "-vf",
-  //         "scale=1280:720", // Scale to 720p
-  //         "-r",
-  //         "20", // Reduced frame rate
-  //         "-preset",
-  //         "fast", // Faster encoding preset
-  //         "-threads",
-  //         "4", // Use multiple threads
-  //         "output.webm",
-  //       ]);
-
-  //       console.log("FFmpeg compression completed");
-
-  //       // Read compressed file
-  //       console.log("Reading compressed file...");
-  //       const data = await ffmpeg.readFile("output.webm");
-  //       const compressedBlob = new Blob([data.buffer], { type: "video/webm" });
-
-  //       console.log("Compressed blob created:", {
-  //         originalSize: blob.size,
-  //         compressedSize: compressedBlob.size,
-  //         compressionRatio:
-  //           (((blob.size - compressedBlob.size) / blob.size) * 100).toFixed(1) +
-  //           "%",
-  //       });
-
-  //       return compressedBlob;
-  //     })();
-
-  //     // Race between compression and timeout
-  //     const result = await Promise.race([
-  //       compressionPromise,
-  //       new Promise((_, reject) =>
-  //         setTimeout(
-  //           () => reject(new Error("Compression timeout")),
-  //           compressionTimeout
-  //         )
-  //       ),
-  //     ]);
-
-  //     return result;
-  //   } catch (error) {
-  //     console.error("FFmpeg compression failed:", error);
-
-  //     if (error.message === "Compression timeout") {
-  //       console.log("Compression timed out, using original file");
-  //       toast.warn("Compression timed out, uploading original file");
-  //     } else {
-  //       console.log("Compression failed, using original file");
-  //       toast.warn("Compression failed, uploading original file");
-  //     }
-
-  //     // Return original blob if compression fails or times out
-  //     throw error;
-  //   }
-  // };
 
   const generateTranscription = async (cloudinaryVideoUrl, meetingId) => {
     try {
       const response = await axios.post(
-        "http://localhost:3000/api/transcribe-from-url",
+        `${MEDIASERVER_URL}/api/transcribe-from-url`,
         {
           videoUrl: cloudinaryVideoUrl,
           meetingId,
           language: "en-US",
         },
         {
-          headers: {
-            "Content-Type": "application/json",
-          },
+          withCredentials: true,
         }
       );
       console.log("Transcription response:", response.data);
@@ -1338,14 +1206,6 @@ export default function VideoCallInterface({
         });
 
         console.log("Transcription saved to database:", saveResponse.data);
-
-        // Optionally generate summary
-        // const summaryResponse = await axios.post('http://localhost:3000/api/generate-summary', {
-        //   transcription: response.data.transcription,
-        //   meetingId
-        // });
-
-        // console.log('Meeting Summary:', summaryResponse.data);
       } catch (dbError) {
         console.error("Failed to save transcription to database:", dbError);
         throw new Error(
