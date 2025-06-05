@@ -2,10 +2,7 @@ package com.nexmeet.service;
 
 import com.nexmeet.dto.*;
 import com.nexmeet.model.*;
-import com.nexmeet.repository.MeetingRepository;
-import com.nexmeet.repository.ParticipantRepository;
-import com.nexmeet.repository.RecordingRepository;
-import com.nexmeet.repository.UserRepository;
+import com.nexmeet.repository.*;
 import com.nexmeet.util.MeetingCodeGenerator;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
@@ -29,19 +26,23 @@ public class MeetingService {
     private final MediaSoupService mediaSoupService;
     private final SimpMessagingTemplate messagingTemplate;
     private final RecordingRepository recordingRepository;
+    private final SummaryRepository summaryRepository;
+    private final TranscriptionRepository transcriptionRepository;
 
     public MeetingService(
             MeetingRepository meetingRepository,
             UserRepository userRepository,
             ParticipantRepository participantRepository,
             MediaSoupService mediaSoupService,
-            SimpMessagingTemplate messagingTemplate, RecordingRepository recordingRepository) {
+            SimpMessagingTemplate messagingTemplate, RecordingRepository recordingRepository, SummaryRepository summaryRepository, TranscriptionRepository transcriptionRepository) {
         this.meetingRepository = meetingRepository;
         this.userRepository = userRepository;
         this.participantRepository = participantRepository;
         this.mediaSoupService = mediaSoupService;
         this.messagingTemplate = messagingTemplate;
         this.recordingRepository = recordingRepository;
+        this.summaryRepository = summaryRepository;
+        this.transcriptionRepository = transcriptionRepository;
     }
 
     public Map<String, Meeting> getAllMeetings() {
@@ -409,5 +410,61 @@ public class MeetingService {
 
             return ResponseEntity.status(500).body(errorResponse);
         }
+    }
+
+    @Transactional
+    public ResponseEntity<Map<String, Object>> deleteSummary(String summaryId, UUID userId){
+        Optional<Summary> summary = summaryRepository.findById(UUID.fromString(summaryId));
+        if (summary.isEmpty()) {
+            throw new ResponseStatusException(HttpStatusCode.valueOf(404), "Summary not found");
+        }
+
+        User user = userRepository.findById(userId).orElseThrow(() -> new ResponseStatusException(HttpStatusCode.valueOf(404), "User not found"));
+        if (user.getId() == summary.get().getMeeting().getHost().getId()){
+            summaryRepository.delete(summary.get());
+        }
+        else {
+            throw new ResponseStatusException(HttpStatusCode.valueOf(403), "You are not the host of the meeting");
+        }
+
+        return ResponseEntity.ok(Map.of("success", true));
+    }
+
+    @Transactional
+    public ResponseEntity<Map<String, Object>> deleteTranscription(String transcriptionId, UUID userId){
+        Optional<Transcription> transcription = transcriptionRepository.findById(UUID.fromString(transcriptionId));
+        if (transcription.isEmpty()) {
+            throw new ResponseStatusException(HttpStatusCode.valueOf(404), "Transcription not found");
+        }
+        User user = userRepository.findById(userId).orElseThrow(() -> new ResponseStatusException(HttpStatusCode.valueOf(404), "User not found"));
+        if (user.getId() == transcription.get().getMeeting().getHost().getId()) {
+            transcriptionRepository.delete(transcription.get());
+        }
+        else {
+            throw new ResponseStatusException(HttpStatusCode.valueOf(403), "You are not the host of the meeting");
+        }
+
+        return ResponseEntity.ok(Map.of("success", true));
+    }
+
+    @Transactional
+    public ResponseEntity<Map<String, Object>> deleteMeeting(String meetingId, UUID userId){
+        Optional<Meeting> meeting = meetingRepository.findById(UUID.fromString(meetingId));
+
+        if (meeting.isEmpty()) {
+            throw new ResponseStatusException(HttpStatusCode.valueOf(404), "Meeting not found");
+        }
+
+        User user = userRepository.findById(userId).orElseThrow(() -> new ResponseStatusException(HttpStatusCode.valueOf(404), "User not found"));
+        if (user.getId() == meeting.get().getHost().getId()) {
+
+            meeting.get().setMarkedAsDeleted(true);
+            meetingRepository.save(meeting.get());
+        }
+        else {
+            throw new ResponseStatusException(HttpStatusCode.valueOf(403), "You are not the host of the meeting");
+        }
+
+        return ResponseEntity.ok(Map.of("success", true));
     }
 }
