@@ -28,6 +28,7 @@ public class ExternalApiService {
 
             Map<String, Object> response = webClient.post()
                     .uri("/api/generate-summary")
+                    .header("X-Client-Id", "NexMeet-Server-API-Client")
                     .bodyValue(requestBody)
                     .retrieve()
                     .onStatus(HttpStatusCode::isError, clientResponse -> {
