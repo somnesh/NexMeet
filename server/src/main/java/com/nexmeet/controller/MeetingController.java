@@ -175,10 +175,14 @@ public class MeetingController {
             throw new ResponseStatusException(HttpStatusCode.valueOf(401), "Unauthorized");
         }
         String userIdStr = JwtUtil.extractUserId(accessToken);
+        System.out.println("userIdStr: " + userIdStr);
         UUID userId = null;
-        if (userIdStr == null) {
+        if (userIdStr.compareTo("null") == 0) {
+            System.out.println("userIdStr is null");
             String userEmail = JwtUtil.extractEmail(accessToken);
+            System.out.println("userEmail: " + userEmail);
             userId = userRepository.findByEmail(userEmail).get().getId();
+
         } else {
             userId = UUID.fromString(userIdStr);
         }
@@ -214,6 +218,18 @@ public class MeetingController {
             List<Recording> recordings = recordingRepository.findByMeetingId(meeting.getId());
             String recordingUrl = recordings.isEmpty() ? null : recordings.get(0).getUrl();
             meetingDetails.put("recordingUrl", recordingUrl);
+
+            // Check if the meeting has a generated transcription
+            Optional<Transcription> transcription = transcriptionRepository.findByMeetingId(meeting.getId());
+
+                meetingDetails.put("transcriptionId", transcription.<Object>map(Transcription::getId).orElse(null));
+
+
+            // Check if the meeting has a generated summary
+            Optional<Summary> summary = summaryRepository.findByMeetingId(meeting.getId());
+
+                meetingDetails.put("summaryId", summary.<Object>map(Summary::getId).orElse(null));
+
 
             // Add to result with meetingId as key
             result.put(meeting.getId().toString(), meetingDetails);
@@ -368,6 +384,7 @@ public class MeetingController {
                 response.put("meetingCode", meetingCode);
                 response.put("summary", summaryData);
                 response.put("isNewlyGenerated", true);
+                response.put("summaryId", savedSummary.getId().toString());
 
             } catch (Exception e) {
                 throw new ResponseStatusException(
@@ -380,8 +397,44 @@ public class MeetingController {
             response.put("meetingCode", meetingCode);
             response.put("summary", existingSummary.get().getSummary()); // Direct access!
             response.put("isNewlyGenerated", false);
+            response.put("summaryId", existingSummary.get().getId().toString());
         }
 
         return ResponseEntity.ok(response);
     }
+
+    @DeleteMapping("/summary/{summaryId}")
+    public ResponseEntity<Map<String, Object>> deleteSummary(
+            @PathVariable String summaryId,
+            @CookieValue(value = "accessToken", required = false) String accessToken) {
+        if (accessToken == null) {
+            throw new ResponseStatusException(HttpStatusCode.valueOf(401), "Unauthorized");
+        }
+
+        UUID userId = UUID.fromString(JwtUtil.extractUserId(accessToken));
+        return meetingService.deleteSummary(summaryId, userId);
+    }
+
+    @DeleteMapping("/transcription/{transcriptionId}")
+    public ResponseEntity<Map<String, Object>> deleteTranscription(
+            @PathVariable String transcriptionId,
+            @CookieValue(value = "accessToken", required = false) String accessToken) {
+        if (accessToken == null) {
+            throw new ResponseStatusException(HttpStatusCode.valueOf(401), "Unauthorized");
+        }
+
+        UUID userId = UUID.fromString(JwtUtil.extractUserId(accessToken));
+        return meetingService.deleteTranscription(transcriptionId, userId);
+    }
+
+    @DeleteMapping("/{meetingId}")
+    public ResponseEntity<Map<String, Object>> deleteMeeting(@PathVariable String meetingId,
+                                                             @CookieValue(value = "accessToken", required = false) String accessToken){
+        if (accessToken == null) {
+            throw new ResponseStatusException(HttpStatusCode.valueOf(401), "Unauthorized");
+        }
+        UUID userId = UUID.fromString(JwtUtil.extractUserId(accessToken));
+        return meetingService.deleteMeeting(meetingId, userId);
+    }
+
 }
