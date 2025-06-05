@@ -241,7 +241,7 @@ export default function OTPVerification() {
       });
 
       console.log("OTP verification response:", response.data);
-      setIsLoading(false);
+
       if (response.data.success) {
         setVerificationStatus("success");
         toast.promise(
@@ -254,8 +254,9 @@ export default function OTPVerification() {
             loading: "Signing up...",
             success: "Account created successfully!",
             error: (error) => {
+              console.error(error);
               return (
-                error.response?.data?.msg ||
+                error.response?.data ||
                 "An error occurred during sign up. Please try again."
               );
             },
@@ -268,7 +269,6 @@ export default function OTPVerification() {
       setErrorMessage(
         error.response?.data?.error || "Verification failed. Please try again."
       );
-      setIsLoading(false);
       // Shake inputs on error
       inputRefs.current.forEach((input, index) => {
         setTimeout(() => {
@@ -276,6 +276,8 @@ export default function OTPVerification() {
           setTimeout(() => input?.classList.remove("animate-shake"), 500);
         }, index * 30);
       });
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -335,15 +337,13 @@ export default function OTPVerification() {
     } catch (error) {
       if (error.response && error.response.status === 409) {
         console.error("Email already exists: ", error);
-        setSignUpError("Email already exists");
+        setErrorMessage("Email already exists");
         throw new Error("Email already exists");
       } else {
         console.error("Error during sign up:", error);
-        setSignUpError("An error occurred while signing up");
+        setErrorMessage("An error occurred while signing up");
         throw new Error("An error occurred while signing up");
       }
-    } finally {
-      setIsSigningUp(false);
     }
   };
 
