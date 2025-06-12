@@ -13,9 +13,12 @@ public class CorsConfig {
             @Override
             public void addCorsMappings(CorsRegistry registry) {
                 registry.addMapping("/**")
-                        .allowedOrigins("http://localhost:5173", "https://nex-meet-theta.vercel.app", "https://accounts.google.com/o/oauth2/auth")
+                        .allowedOrigins("http://localhost:5173", "https://nex-meet-theta.vercel.app",
+                                "https://accounts.google.com/o/oauth2/auth")
                         .allowedMethods("GET", "POST", "PUT", "DELETE")
-                        .allowCredentials(true);
+                        .allowedHeaders("*")
+                        .allowCredentials(true)
+                        .maxAge(3600);
             }
         };
     }
