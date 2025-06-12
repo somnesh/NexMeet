@@ -8,6 +8,7 @@ const verifyToken = (req, res, next) => {
     let token = null;
     console.log("Verifying token headers: ", req.headers);
     console.log("Verifying token cookies: ", req.headers.cookie);
+    console.log("req: ", req);
 
     if (req.headers.cookie) {
       const cookies = req.headers.cookie;
