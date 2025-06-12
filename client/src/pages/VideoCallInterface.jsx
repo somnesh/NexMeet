@@ -130,6 +130,7 @@ export default function VideoCallInterface({
 
   const MEDIASERVER_URL = import.meta.env.VITE_MEDIA_SERVER_URL;
   const APP_URL = import.meta.env.VITE_APP_URL;
+  const API_URL = import.meta.env.VITE_API_URL;
 
   // Set the current popup request when join requests change
   useEffect(() => {
@@ -1178,6 +1179,18 @@ export default function VideoCallInterface({
         toast.error("Upload timeout - file may be too large");
       } else if (error.response?.status === 413) {
         toast.error("File too large - please try a shorter recording");
+      } else if (error.response.status === 401) {
+        console.log("Access token error. Attempting refresh...");
+        try {
+          await axios.post(`${API_URL}/auth/access-token`, null, {
+            withCredentials: true,
+          });
+          console.log("Access token refreshed successfully");
+        } catch (error) {
+          console.error("Error refreshing access token:", error);
+        } finally {
+          toast.error("Failed to upload recording. Please try again later.");
+        }
       } else {
         toast.error("Failed to upload recording");
       }
