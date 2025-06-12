@@ -6,6 +6,8 @@ const verifyToken = (req, res, next) => {
   try {
     // Extract token from cookies (same as your Spring Boot setup)
     let token = null;
+    console.log("Verifying token headers: ", req.headers);
+    console.log("Verifying token cookies: ", req.headers.cookie);
 
     if (req.headers.cookie) {
       const cookies = req.headers.cookie;
