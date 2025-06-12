@@ -9,6 +9,8 @@ import com.nexmeet.model.User;
 import com.nexmeet.repository.UserRepository;
 import com.nexmeet.util.JwtUtil;
 import jakarta.servlet.http.HttpServletResponse;
+
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
@@ -29,6 +31,8 @@ import java.time.Duration;
 
 @Service
 public class AuthService {
+    @Value("${PROD:false}")
+    private String PROD;
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
@@ -159,6 +163,7 @@ public class AuthService {
         ResponseCookie cookie = ResponseCookie.from(name, value)
                 .httpOnly(true)
                 .secure(true)
+                .domain("true".equals(PROD) ? ".onrender.com" : "localhost")
                 .path("/")
                 .maxAge(Duration.ofSeconds(maxAge))
                 .sameSite("None")
