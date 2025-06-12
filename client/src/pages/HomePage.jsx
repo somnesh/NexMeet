@@ -161,15 +161,21 @@ export default function HomePage() {
 
   // Handle creating a new meeting
   const handleCreateMeeting = async () => {
-    console.log("Creating new meeting");
-    setIsCreating(true);
+    try {
+      console.log("Creating new meeting");
+      setIsCreating(true);
 
-    const res = await API.post("/meeting");
-    console.log(res);
-    if (res.status === 200) {
-      navigate(`/${res.data.code}`);
+      const res = await API.post("/meeting");
+      console.log(res);
+      if (res.status === 200) {
+        navigate(`/${res.data.code}`);
+      }
+      setIsCreating(false);
+    } catch (error) {
+      console.error("Failed to create meeting:", error);
+      setIsCreating(false);
+      toast.error("Failed to create meeting. Please try again.");
     }
-    setIsCreating(false);
   };
 
   useEffect(() => {
