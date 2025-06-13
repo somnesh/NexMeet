@@ -69,10 +69,10 @@ public class AuthService {
         user.setRefreshToken(refreshToken);
         userRepository.save(user);
         // Set Access Token as HttpOnly Cookie
-        setCookie(response, "accessToken", accessToken, 15 * 60); // 15 minutes expiry
+        setCookie(response, "accessToken", accessToken, 15 * 60, null); // 15 minutes expiry
 
         // Set Refresh Token as HttpOnly Cookie
-        setCookie(response, "refreshToken", refreshToken, 7 * 24 * 60 * 60); // 7 days expiry
+        setCookie(response, "refreshToken", refreshToken, 7 * 24 * 60 * 60, null); // 7 days expiry
 
         return new AuthResponse(user.getName(), user.getId().toString(), user.getEmail(), user.getAvatar(), accessToken,
                 refreshToken, "User registered successfully");
@@ -96,10 +96,13 @@ public class AuthService {
         userRepository.save(user);
 
         // Set Access Token as HttpOnly Cookie
-        setCookie(response, "accessToken", accessToken, 15 * 60); // 15 minutes expiry
+        setCookie(response, "accessToken", accessToken, 15 * 60, null); // 15 minutes expiry
+
+        // explicitly set domain for production
+        setCookie(response, "expressAccessToken", accessToken, 15 * 60, "nexmeet-turn-server.onrender.com");
 
         // Set Refresh Token as HttpOnly Cookie
-        setCookie(response, "refreshToken", refreshToken, 7 * 24 * 60 * 60); // 7 days expiry
+        setCookie(response, "refreshToken", refreshToken, 7 * 24 * 60 * 60, null); // 7 days expiry
 
         return new AuthResponse(user.getName(), user.getId().toString(), user.getEmail(), user.getAvatar(), accessToken,
                 refreshToken, "Login successful");
@@ -132,10 +135,13 @@ public class AuthService {
         userRepository.save(user);
 
         // Set Access Token as HttpOnly Cookie
-        setCookie(response, "accessToken", accessToken, 15 * 60); // 15 minutes expiry
+        setCookie(response, "accessToken", accessToken, 15 * 60, null); // 15 minutes expiry
+
+        // explicitly set domain for production
+        setCookie(response, "expressAccessToken", accessToken, 15 * 60, "nexmeet-turn-server.onrender.com");
 
         // Set Refresh Token as HttpOnly Cookie
-        setCookie(response, "refreshToken", refreshToken, 7 * 24 * 60 * 60); // 7 days expiry
+        setCookie(response, "refreshToken", refreshToken, 7 * 24 * 60 * 60, null); // 7 days expiry
 
         return new AuthResponse(user.getName(), user.getId().toString(), user.getEmail(), user.getAvatar(), accessToken,
                 refreshToken, "Token refreshed");
@@ -150,7 +156,7 @@ public class AuthService {
             }
 
             String resetToken = JwtUtil.generateAccessToken(String.valueOf(user.get().getId()), email);
-            setCookie(response, "resetToken", resetToken, 10 * 60);
+            setCookie(response, "resetToken", resetToken, 10 * 60, null);
 
             return ResponseEntity.ok("User found with email: " + user.get().getEmail());
         } else {
@@ -159,16 +165,19 @@ public class AuthService {
         }
     }
 
-    private void setCookie(HttpServletResponse response, String name, String value, int maxAge) {
-        ResponseCookie cookie = ResponseCookie.from(name, value)
+    private void setCookie(HttpServletResponse response, String name, String value, int maxAge, String domain) {
+        ResponseCookie.ResponseCookieBuilder cookieBuilder = ResponseCookie.from(name, value)
                 .httpOnly(true)
                 .secure(true)
-                .domain("true".equals(PROD) ? ".onrender.com" : "localhost")
                 .path("/")
                 .maxAge(Duration.ofSeconds(maxAge))
-                .sameSite("None")
-                .build();
+                .sameSite("None");
 
+        if (domain != null) {
+            cookieBuilder.domain(domain);
+        }
+
+        ResponseCookie cookie = cookieBuilder.build();
         response.addHeader("Set-Cookie", cookie.toString());
     }
 }
