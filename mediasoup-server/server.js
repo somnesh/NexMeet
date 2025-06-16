@@ -448,7 +448,7 @@ async function downloadAudioFile(audioUrl) {
 }
 
 // API endpoint for speech-to-text transcription from Cloudinary URL
-app.post("/api/transcribe-from-url", verifyToken, async (req, res) => {
+app.post("/api/transcribe-from-url", async (req, res) => {
   let audioFilePath = null;
   try {
     const { videoUrl, meetingId, language = "en-US" } = req.body;
@@ -695,7 +695,7 @@ function extractAndCleanJson(text) {
   return cleaned.trim();
 }
 
-app.get("/api/cloudinary-signature", verifyToken, async (req, res) => {
+app.get("/api/cloudinary-signature", async (req, res) => {
   const timestamp = Math.round(new Date().getTime() / 1000); // Current timestamp
   const paramsToSign = {
     timestamp: timestamp,
