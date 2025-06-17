@@ -571,9 +571,9 @@ function performTranscription(recognizer) {
 // API endpoint for AI-powered meeting summary
 app.post("/api/generate-summary", async (req, res) => {
   try {
-    if (req.headers["x-client-id"] !== process.env.CLIENT_ID) {
-      return res.status(401).json({ error: "Unauthorized" });
-    }
+    // if (req.headers["x-client-id"] !== process.env.CLIENT_ID) {
+    //   return res.status(401).json({ error: "Unauthorized" });
+    // }
 
     const { transcription, meetingId } = req.body;
 
