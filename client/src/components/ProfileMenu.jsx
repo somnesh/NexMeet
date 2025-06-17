@@ -47,7 +47,7 @@ export function ProfileMenu({ setPageLoading }) {
   };
 
   const switchTheme = (e) => {
-    if (theme === "white") {
+    if (theme === "light") {
       darkTheme(e);
     } else {
       lightTheme(e);
@@ -110,7 +110,7 @@ export function ProfileMenu({ setPageLoading }) {
                           </DropdownMenuItem>
                         </>
                       )}
-                      {theme === "white" && (
+                      {theme === "light" && (
                         <>
                           <DropdownMenuItem
                             onClick={switchTheme}
