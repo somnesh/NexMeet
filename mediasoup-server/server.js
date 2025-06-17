@@ -720,7 +720,7 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_CLOUD_API_SECRET,
 });
 
-app.delete("/api/delete-recording/:publicId", verifyToken, async (req, res) => {
+app.delete("/api/delete-recording/:publicId", async (req, res) => {
   const { publicId } = req.params;
 
   console.log("Public ID for deletion:", publicId);
