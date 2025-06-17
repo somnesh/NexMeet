@@ -420,10 +420,10 @@ export default function HomePage() {
     try {
       const publicId = publicURL.split("/").slice(-2)[1].split(".")[0];
       const response = await axios.delete(
-        `${MEDIA_SERVER_URL}/api/delete-recording/${publicId}`,
-        {
-          withCredentials: true,
-        }
+        `${MEDIA_SERVER_URL}/api/delete-recording/${publicId}`
+        // {
+        //   withCredentials: true,
+        // }
       );
 
       if (response.status === 200) {
