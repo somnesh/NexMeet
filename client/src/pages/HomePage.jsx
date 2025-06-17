@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import {
-  Video,
   Clock,
   Plus,
   ArrowRight,
@@ -35,16 +34,15 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import API from "../api/api";
 import { WholePageLoader } from "../components/loaders/WholePageLoader.jsx";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import Header from "../components/Header";
 import MeetingsLoader from "../components/loaders/MeetingLoader";
 import { toast } from "sonner";
-import MarkdownDialog from "../components/MarkdownViewer";
 import InviteDialog from "../components/InviteDialog";
 import { DropdownMenuSeparator } from "../components/ui/dropdown-menu";
 import axios from "axios";
-import useTheme from "../contexts/Theme";
 import { Footer } from "../components/footer";
+import MeetingSummaryDialog from "../components/MeetingSummaryDialog";
 
 export default function HomePage() {
   const [meetingCode, setMeetingCode] = useState("");
@@ -54,15 +52,13 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true);
   const [recentMeetings, setRecentMeetings] = useState([]);
   const [meetingHistoryLoading, setMeetingHistoryLoading] = useState(true);
-  const [meetingSummary, setMeetingSummary] = useState(null);
+  // const [meetingSummary, setMeetingSummary] = useState(null);
   const [meetingSummaryResponse, setMeetingSummaryResponse] = useState(null);
-  const [open, setOpen] = useState(false);
   const [openSummary, setOpenSummary] = useState(false);
 
   const APP_URL = import.meta.env.VITE_APP_URL;
   const MEDIA_SERVER_URL = import.meta.env.VITE_MEDIA_SERVER_URL;
   const navigate = useNavigate();
-  const { theme } = useTheme();
 
   useEffect(() => {
     // Check URL parameters
@@ -283,54 +279,54 @@ export default function HomePage() {
       console.log("Summary response:", response.data);
 
       // Format the summary data into a readable paragraph
-      const formatSummary = (summaryData) => {
-        const { summary } = summaryData;
+      // const formatSummary = (summaryData) => {
+      //   const { summary } = summaryData;
 
-        let formattedText = `**Meeting Title:** ${summary.title}\n\n`;
-        formattedText += `**Duration:** ${summary.duration}\n\n`;
-        formattedText += `**Summary:** ${summary.summary}\n\n`;
+      //   let formattedText = `**Meeting Title:** ${summary.title}\n\n`;
+      //   formattedText += `**Duration:** ${summary.duration}\n\n`;
+      //   formattedText += `**Summary:** ${summary.summary}\n\n`;
 
-        if (summary.keyPoints && summary.keyPoints.length > 0) {
-          formattedText += `**Key Points:**\n${summary.keyPoints
-            .map((point) => `• ${point}`)
-            .join("\n")}\n\n`;
-        }
+      //   if (summary.keyPoints && summary.keyPoints.length > 0) {
+      //     formattedText += `**Key Points:**\n${summary.keyPoints
+      //       .map((point) => `• ${point}`)
+      //       .join("\n")}\n\n`;
+      //   }
 
-        if (summary.topics && summary.topics.length > 0) {
-          formattedText += `**Topics Discussed:**\n${summary.topics
-            .map((topic) => `• ${topic}`)
-            .join("\n")}\n\n`;
-        }
+      //   if (summary.topics && summary.topics.length > 0) {
+      //     formattedText += `**Topics Discussed:**\n${summary.topics
+      //       .map((topic) => `• ${topic}`)
+      //       .join("\n")}\n\n`;
+      //   }
 
-        if (summary.participants && summary.participants.length > 0) {
-          formattedText += `**Participants:**\n${summary.participants
-            .map((participant) => `• ${participant}`)
-            .join("\n")}\n\n`;
-        }
+      //   if (summary.participants && summary.participants.length > 0) {
+      //     formattedText += `**Participants:**\n${summary.participants
+      //       .map((participant) => `• ${participant}`)
+      //       .join("\n")}\n\n`;
+      //   }
 
-        if (summary.decisions && summary.decisions.length > 0) {
-          formattedText += `**Decisions Made:**\n${summary.decisions
-            .map((decision) => `• ${decision}`)
-            .join("\n")}\n\n`;
-        }
+      //   if (summary.decisions && summary.decisions.length > 0) {
+      //     formattedText += `**Decisions Made:**\n${summary.decisions
+      //       .map((decision) => `• ${decision}`)
+      //       .join("\n")}\n\n`;
+      //   }
 
-        if (summary.actionItems && summary.actionItems.length > 0) {
-          formattedText += `**Action Items:**\n${summary.actionItems
-            .map((item) => `• ${item}`)
-            .join("\n")}\n\n`;
-        }
+      //   if (summary.actionItems && summary.actionItems.length > 0) {
+      //     formattedText += `**Action Items:**\n${summary.actionItems
+      //       .map((item) => `• ${item}`)
+      //       .join("\n")}\n\n`;
+      //   }
 
-        if (summary.nextSteps && summary.nextSteps.length > 0) {
-          formattedText += `**Next Steps:**\n${summary.nextSteps
-            .map((step) => `• ${step}`)
-            .join("\n")}`;
-        }
+      //   if (summary.nextSteps && summary.nextSteps.length > 0) {
+      //     formattedText += `**Next Steps:**\n${summary.nextSteps
+      //       .map((step) => `• ${step}`)
+      //       .join("\n")}`;
+      //   }
 
-        return formattedText.trim();
-      };
+      //   return formattedText.trim();
+      // };
 
-      const formattedSummary = formatSummary(response.data);
-      console.log("Formatted Summary:", formattedSummary);
+      // const formattedSummary = formatSummary(response.data);
+      // console.log("Formatted Summary:", formattedSummary);
 
       // Cheeck if the summaryId in the meeting object is null or not (if null update the summaryId in the meeting object)
       if (!meeting.summaryId) {
@@ -347,8 +343,7 @@ export default function HomePage() {
 
       setOpenSummary(true);
       setMeetingSummaryResponse(response.data);
-      setMeetingSummary(formattedSummary);
-      setOpen(true);
+      // setMeetingSummary(response.data?.summary?.summary);
     } catch (error) {
       console.error("Error viewing summary:", error);
       throw new Error("Failed to fetch meeting summary");
@@ -470,7 +465,7 @@ export default function HomePage() {
           return meeting;
         })
       );
-      setMeetingSummary(null);
+      // setMeetingSummary(null);
     } catch (error) {
       console.error("Failed to delete summary:", error);
       throw new Error("Failed to delete summary");
@@ -810,12 +805,17 @@ export default function HomePage() {
                         ))}
                       </div>
                       {openSummary && (
-                        <MarkdownDialog
-                          trigger={meetingSummary.length > 0}
-                          content={meetingSummary}
-                          code={meetingSummaryResponse?.meetingCode}
-                          isOpen={openSummary}
-                          setIsOpen={setOpenSummary}
+                        // <MarkdownDialog
+                        //   trigger={meetingSummary.length > 0}
+                        //   content={meetingSummary}
+                        //   code={meetingSummaryResponse?.meetingCode}
+                        //   isOpen={openSummary}
+                        //   setIsOpen={setOpenSummary}
+                        // />
+                        <MeetingSummaryDialog
+                          meetingData={meetingSummaryResponse.summary}
+                          open={openSummary}
+                          setOpen={setOpenSummary}
                         />
                       )}
                     </TabsContent>
