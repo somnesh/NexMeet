@@ -178,6 +178,18 @@ export default function VideoCallInterface({
           }
         });
 
+        // stompService.subscribe("/user/queue/meeting-updates", (data) => {
+        //   console.log("User specific meeting update:", data);
+
+        //   if (data.type === "YOU_WERE_KICKED") {
+        //     toast.error("You have been removed from the meeting by the host");
+        //     // Redirect to home page or show a dialog
+        //     setTimeout(() => {
+        //       window.location.href = "/";
+        //     }, 1000);
+        //   }
+        // });
+
         if (getMeetingResponse.host) {
           // Host-specific subscription for join requests
           console.log("subscribing to join requests");
@@ -210,7 +222,11 @@ export default function VideoCallInterface({
         mediaSoupService.on("peerLeft", (data) => {
           console.log(`Handling peer left: { peerId: ${JSON.stringify(data)}`);
           console.log("++++participants: ", participants);
-          toast.info(`${data.name} left the meeting`);
+          // if (data.type === "PARTICIPANT_KICKED") {
+          //   toast.info(`${data.name} was removed from the meeting`);
+          // } else {
+          //   toast.info(`${data.name} left the meeting`);
+          // }
           // Remove participant from the list
           removeParticipant(data.peerId);
         });
@@ -1231,6 +1247,32 @@ export default function VideoCallInterface({
     }
   };
 
+  const handleRemoveParticipant = async (participantId) => {
+    try {
+      // Show confirmation dialog before kicking
+      if (
+        !window.confirm(
+          "Are you sure you want to remove this participant from the call?"
+        )
+      ) {
+        return;
+      }
+
+      // Call the API to kick the participant
+      await API.post(`/meeting/${meetingCode}/kick/${participantId}`);
+
+      // Remove participant from local state (optional, since you'll receive a websocket event)
+      setParticipants((prev) =>
+        prev.filter((p) => p.participantId !== participantId)
+      );
+
+      toast.success("Participant has been removed from the call");
+    } catch (error) {
+      console.error("Error removing participant:", error);
+      toast.error("Failed to remove participant from the call");
+    }
+  };
+
   return (
     <div
       ref={containerRef}
@@ -1953,16 +1995,14 @@ export default function VideoCallInterface({
                               </DropdownMenuItem>
                               {!participant.isCurrentUser && (
                                 <>
-                                  <DropdownMenuItem>
-                                    <Volume1 className="h-4 w-4 mr-2" />
-                                    Adjust volume
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem>
-                                    <MessageSquare className="h-4 w-4 mr-2" />
-                                    Private message
-                                  </DropdownMenuItem>
-                                  <DropdownMenuSeparator />
-                                  <DropdownMenuItem className="text-red-500">
+                                  <DropdownMenuItem
+                                    className="text-red-500"
+                                    onClick={() =>
+                                      handleRemoveParticipant(
+                                        participant.participantId
+                                      )
+                                    }
+                                  >
                                     <X className="h-4 w-4 mr-2" />
                                     Remove from call
                                   </DropdownMenuItem>
@@ -2100,33 +2140,32 @@ export default function VideoCallInterface({
             </TooltipProvider> */}
 
             {/* Recording */}
-            {getMeetingResponse.host && (
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant={isRecording ? "default" : "ghost"}
-                      size="icon"
-                      className={`rounded-full h-12 w-12 ${
-                        isRecording ? "animate-pulse" : ""
-                      }`}
-                      onClick={() =>
-                        isRecording ? stopRecording() : startRecording()
-                      }
-                    >
-                      {isRecording ? (
-                        <CircleStop className="h-5 w-5 text-red-500" />
-                      ) : (
-                        <Disc2 className="h-5 w-5" />
-                      )}
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    {isRecording ? "Stop recording" : "Start recording"}
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            )}
+
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant={isRecording ? "default" : "ghost"}
+                    size="icon"
+                    className={`rounded-full h-12 w-12 ${
+                      isRecording ? "animate-pulse" : ""
+                    }`}
+                    onClick={() =>
+                      isRecording ? stopRecording() : startRecording()
+                    }
+                  >
+                    {isRecording ? (
+                      <CircleStop className="h-5 w-5 text-red-500" />
+                    ) : (
+                      <Disc2 className="h-5 w-5" />
+                    )}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {isRecording ? "Stop recording" : "Start recording"}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
 
             <div className="h-8 border-l mx-1"></div>
 
