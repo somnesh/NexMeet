@@ -58,8 +58,8 @@ const router = createBrowserRouter([
 
 function App() {
   const [theme, setTheme] = useState(
-    localStorage.theme === "white" || !("theme" in localStorage)
-      ? "white"
+    localStorage.theme === "light" || !("theme" in localStorage)
+      ? "light"
       : "dark"
   );
   const [triggerElement, setTriggerElement] = useState(null);
@@ -71,13 +71,13 @@ function App() {
   };
 
   const lightTheme = (e) => {
-    setTheme("white");
-    localStorage.theme = "white";
+    setTheme("light");
+    localStorage.theme = "light";
     setTriggerElement(e);
   };
 
   useEffect(() => {
-    document.querySelector("html").classList.remove("dark", "white");
+    document.querySelector("html").classList.remove("dark", "light");
     document.querySelector("html").classList.add(theme);
     if (triggerElement) {
       triggerElement.currentTarget.classList.add("dark:bg-white");
