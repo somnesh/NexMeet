@@ -448,7 +448,7 @@ async function downloadAudioFile(audioUrl) {
 }
 
 // API endpoint for speech-to-text transcription from Cloudinary URL
-app.post("/api/transcribe-from-url", async (req, res) => {
+app.post("/api/transcribe-from-url", verifyToken, async (req, res) => {
   let audioFilePath = null;
   try {
     const { videoUrl, meetingId, language = "en-US" } = req.body;
@@ -571,9 +571,9 @@ function performTranscription(recognizer) {
 // API endpoint for AI-powered meeting summary
 app.post("/api/generate-summary", async (req, res) => {
   try {
-    // if (req.headers["x-client-id"] !== process.env.CLIENT_ID) {
-    //   return res.status(401).json({ error: "Unauthorized" });
-    // }
+    if (req.headers["x-client-id"] !== process.env.CLIENT_ID) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
 
     const { transcription, meetingId } = req.body;
 
@@ -695,7 +695,7 @@ function extractAndCleanJson(text) {
   return cleaned.trim();
 }
 
-app.get("/api/cloudinary-signature", async (req, res) => {
+app.get("/api/cloudinary-signature", verifyToken, async (req, res) => {
   const timestamp = Math.round(new Date().getTime() / 1000); // Current timestamp
   const paramsToSign = {
     timestamp: timestamp,
@@ -720,7 +720,7 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_CLOUD_API_SECRET,
 });
 
-app.delete("/api/delete-recording/:publicId", async (req, res) => {
+app.delete("/api/delete-recording/:publicId", verifyToken, async (req, res) => {
   const { publicId } = req.params;
 
   console.log("Public ID for deletion:", publicId);
