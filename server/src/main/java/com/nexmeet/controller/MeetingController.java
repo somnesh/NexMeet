@@ -222,14 +222,12 @@ public class MeetingController {
             // Check if the meeting has a generated transcription
             Optional<Transcription> transcription = transcriptionRepository.findByMeetingId(meeting.getId());
 
-                meetingDetails.put("transcriptionId", transcription.<Object>map(Transcription::getId).orElse(null));
-
+            meetingDetails.put("transcriptionId", transcription.<Object>map(Transcription::getId).orElse(null));
 
             // Check if the meeting has a generated summary
             Optional<Summary> summary = summaryRepository.findByMeetingId(meeting.getId());
 
-                meetingDetails.put("summaryId", summary.<Object>map(Summary::getId).orElse(null));
-
+            meetingDetails.put("summaryId", summary.<Object>map(Summary::getId).orElse(null));
 
             // Add to result with meetingId as key
             result.put(meeting.getId().toString(), meetingDetails);
@@ -429,7 +427,7 @@ public class MeetingController {
 
     @DeleteMapping("/{meetingId}")
     public ResponseEntity<Map<String, Object>> deleteMeeting(@PathVariable String meetingId,
-                                                             @CookieValue(value = "accessToken", required = false) String accessToken){
+            @CookieValue(value = "accessToken", required = false) String accessToken) {
         if (accessToken == null) {
             throw new ResponseStatusException(HttpStatusCode.valueOf(401), "Unauthorized");
         }
