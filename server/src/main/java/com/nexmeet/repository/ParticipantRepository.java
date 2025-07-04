@@ -14,7 +14,7 @@ import java.util.UUID;
 public interface ParticipantRepository extends JpaRepository<Participant, UUID> {
     Optional<Participant> findById(UUID id);
 
-    void deleteByMeeting(Meeting meeting);
+    Optional<Participant> findByUserIdAndMeeting(UUID userId, Meeting meeting);
 
     @Modifying
     @Query("update Participant p set p.leftAt = :currentTime where p.meeting.id = :meetingId")
