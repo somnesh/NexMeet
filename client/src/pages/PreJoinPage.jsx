@@ -429,12 +429,16 @@ export default function PreJoinPage({ meetingCode, setCurrentPage, isHost }) {
           console.log("Meeting update received:", data);
           if (data.type === "JOIN_ACCEPTED") {
             console.log("Join request accepted");
+            stompService.disconnect();
+
+            // // Clean up STOMP subscriptions
+            stompService.unsubscribe("/user/queue/meeting-updates");
             setCurrentPage("call");
           }
-        })
+        });
       }
     })();
-  })
+  });
 
   // Device selection dropdown component
   const DeviceDropdown = ({
@@ -919,7 +923,9 @@ export default function PreJoinPage({ meetingCode, setCurrentPage, isHost }) {
                       ? loading
                         ? "Joining..."
                         : "Join Meeting"
-                      : isWaiting ?"Asking to join..." :"Ask to Join"}
+                      : isWaiting
+                      ? "Asking to join..."
+                      : "Ask to Join"}
                   </Button>
                 </div>
               </div>
