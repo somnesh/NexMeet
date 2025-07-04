@@ -173,22 +173,22 @@ export default function VideoCallInterface({
             // console.log("Participant joined:", data);
             toast.success(`${data.name} joined`);
             data.isCurrentUser = data.userId === localStorage.userId;
-            // setParticipants((prev) => [...prev, data]);
+            setParticipants((prev) => [...prev, data]);
             await joinRoom();
           }
         });
 
-        // stompService.subscribe("/user/queue/meeting-updates", (data) => {
-        //   console.log("User specific meeting update:", data);
+        stompService.subscribe("/user/queue/meeting-updates", (data) => {
+          console.log("User specific meeting update:", data);
 
-        //   if (data.type === "YOU_WERE_KICKED") {
-        //     toast.error("You have been removed from the meeting by the host");
-        //     // Redirect to home page or show a dialog
-        //     setTimeout(() => {
-        //       window.location.href = "/";
-        //     }, 1000);
-        //   }
-        // });
+          if (data.type === "YOU_WERE_KICKED") {
+            toast.error("You have been removed from the meeting by the host");
+            // Redirect to home page or show a dialog
+            setTimeout(() => {
+              window.location.href = "/";
+            }, 1000);
+          }
+        });
 
         if (getMeetingResponse.host) {
           // Host-specific subscription for join requests
@@ -222,11 +222,11 @@ export default function VideoCallInterface({
         mediaSoupService.on("peerLeft", (data) => {
           console.log(`Handling peer left: { peerId: ${JSON.stringify(data)}`);
           console.log("++++participants: ", participants);
-          // if (data.type === "PARTICIPANT_KICKED") {
-          //   toast.info(`${data.name} was removed from the meeting`);
-          // } else {
-          //   toast.info(`${data.name} left the meeting`);
-          // }
+          if (data.type === "PARTICIPANT_KICKED") {
+            toast.info(`${data.name} was removed from the meeting`);
+          } else {
+            toast.info(`${data.name} left the meeting`);
+          }
           // Remove participant from the list
           removeParticipant(data.peerId);
         });
@@ -2140,32 +2140,33 @@ export default function VideoCallInterface({
             </TooltipProvider> */}
 
             {/* Recording */}
-
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant={isRecording ? "default" : "ghost"}
-                    size="icon"
-                    className={`rounded-full h-12 w-12 ${
-                      isRecording ? "animate-pulse" : ""
-                    }`}
-                    onClick={() =>
-                      isRecording ? stopRecording() : startRecording()
-                    }
-                  >
-                    {isRecording ? (
-                      <CircleStop className="h-5 w-5 text-red-500" />
-                    ) : (
-                      <Disc2 className="h-5 w-5" />
-                    )}
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  {isRecording ? "Stop recording" : "Start recording"}
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+            {getMeetingResponse.host && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant={isRecording ? "default" : "ghost"}
+                      size="icon"
+                      className={`rounded-full h-12 w-12 ${
+                        isRecording ? "animate-pulse" : ""
+                      }`}
+                      onClick={() =>
+                        isRecording ? stopRecording() : startRecording()
+                      }
+                    >
+                      {isRecording ? (
+                        <CircleStop className="h-5 w-5 text-red-500" />
+                      ) : (
+                        <Disc2 className="h-5 w-5" />
+                      )}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    {isRecording ? "Stop recording" : "Start recording"}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
 
             <div className="h-8 border-l mx-1"></div>
 
